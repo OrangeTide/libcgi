@@ -1,0 +1,16 @@
+table main
+    <prev   =title  >next
+    _       =img    _
+    <prev10 _       >next10
+    _       entry   _ 
+    command _       comment
+end
+list command
+    home
+    select
+    delete
+    thumbgallery
+end
+line entry
+    submit identry ofmaxid
+end
