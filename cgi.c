@@ -112,14 +112,25 @@ const char *htmlget(html_t ht, const char *name)
 void htmlset(html_t ht, const char *name, const char *val)
 {
 	int len=strlen(name)+1;
-	char n[len]; /* C99 variable length arrays */
 	int i;
+
+	#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	char n[len]; /* C99 variable length arrays */
+	#else
+	char *n;
+	n=malloc(len);
+	#endif
+
 	for(i=0;name[i];i++)
 	{
 		n[i]=tolower(name[i]); /* converts it to lowercase */
 	}
 	n[i]=0;
 	attrset(ht->attr,n,val);
+
+	#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 199901L)
+	free(n);
+	#endif
 }
 
 const char *query_string(void)
