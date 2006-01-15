@@ -1,5 +1,5 @@
 #!/usr/bin/make -f
-CFLAGS:=-Wall -Wshadow -pedantic -g -O2
+CFLAGS:=-Wall -Wshadow -pedantic -g -O2 -std=gnu99
 
 libcgi.a(cgi.o attr.o) : cgi.o attr.o
 

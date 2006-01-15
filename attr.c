@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "attr.h"
 
 struct attribute
@@ -41,7 +43,7 @@ static int attrtype(const char *name)
 {
 	int i;
 	for(i=0;i<name_list.len;i++) {
-		if(!strcmp(name,name_list.data[i])) {
+		if(!strcasecmp(name,name_list.data[i])) {
 			return i;
 		}
 	}
@@ -88,24 +90,52 @@ static const char *attrname(int type)
 	return name_list.data[type];
 }
 
-/*** EXPORTED STUFF ***/
-
-/* set an attribute */
-void attrset(attrlist_t al,const char *name, const char *value)
-{
+static attr_t *setup_access(attrlist_t al, const char *name) {
 	attr_t *at;
 	int type;
-	
+
 	type=attrtype(name);
 	if(type==-1) { /* type not found add it to the global list */
 		type=nameadd(name);	
 	}
 	at=attrlookup(al,type);
-	if(!at && value!=NO_ATTR) {
+	if(!at) {
 		/* create a new attribute if it doesn't exist */
 		at=attradd(al,type);
 	} 
 
+	return at;
+}
+
+/*** EXPORTED STUFF ***/
+void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
+	attr_t *at;
+	size_t oldlen;
+	char *newvalue;
+	at=setup_access(al, name);	
+	/* a null value would delete the attribute */
+	if(value==NO_ATTR) {
+		if(at) attrdel(al,at); /* delete if there is no value */
+		return;
+	}
+	/* append the string */
+	oldlen=at->len;
+	newvalue=realloc(at->value, oldlen+len+1); 
+	if(!newvalue) return;
+	memcpy(newvalue+oldlen, value, len);
+	at->value=newvalue;
+}
+
+void attrcat(attrlist_t al, const char *name, const char *value) {
+	attrcatn(al, name, value, strlen(value));
+}
+
+/* set an attribute */
+void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
+{
+	attr_t *at;
+	at=setup_access(al, name);	
+	/* a null value would delete the attribute */
 	if(value==NO_ATTR) {
 		if(at) attrdel(al,at); /* delete if there is no value */
 		return;
@@ -114,9 +144,34 @@ void attrset(attrlist_t al,const char *name, const char *value)
 	free(at->value);
 	at->value=NO_ATTR;
 	/* set the attribute */
-	at->len=strlen(value);
+	at->len=len;
 	at->value=malloc(at->len+1);
 	memcpy(at->value,value,at->len+1);
+}
+
+void attrset(attrlist_t al, const char *name, const char *value)
+{
+	attrsetn(al, name, value, strlen(value));
+}
+
+int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap)
+{
+	char buf[MAX_ATTR_LEN];
+	int len;
+	len=vsnprintf(buf, sizeof buf, fmt, ap);
+	if(len>=0)
+		attrset(al, name, buf);
+	return len;
+}
+
+int attrprintf(attrlist_t al, const char *name, const char *fmt, ...)
+{
+	int len;
+	va_list ap;
+	va_start(ap, fmt);
+	len=attrvprintf(al, name, fmt, ap);
+	va_end(ap);
+	return len;
 }
 
 /* get an attribute, return NO_ATTR if not found */
@@ -153,6 +208,10 @@ attrlist_t attrinit(void)
 
 void attrfree(attrlist_t al)
 {
+	int i;
+	for(i=0;i<al->len;i++) {
+		free(al->data[i].value);
+	}
 	free(al->data);
 	free(al);
 }
