@@ -78,15 +78,19 @@ static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
 	for(headp=formdata;*headp;) {
 		tailp=headp+strcspn(headp,"=&");
 		len=tailp-headp<sizeof namebuf?tailp-headp:sizeof namebuf-1;
-		if(len) escstr(namebuf,headp,len);
+		escstr(namebuf,headp,len);
 		if(!tailp[0]) { valuebuf[0]=0; attrset(al,namebuf,valuebuf); break; }
 		headp=tailp+1;
-		if(tailp[0]=='&') { valuebuf[0]=0; attrset(al,namebuf,valuebuf); continue; }
+		if(tailp[0]=='&') { 
+			attrset(al,namebuf,"");
+			continue; 
+		}
 		tailp=headp+strcspn(headp,"&");
 		len=tailp-headp<sizeof valuebuf?tailp-headp:sizeof valuebuf-1;
-		if(len) escstr(valuebuf,headp,len);
+		escstr(valuebuf,headp,len);
 		if(!tailp[0]) {
-			attrset(al,namebuf,valuebuf); break; 
+			attrset(al,namebuf,valuebuf);
+			break; 
 		}
 		headp=tailp+1;
 		attrset(al,namebuf,valuebuf);

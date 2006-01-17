@@ -72,7 +72,7 @@ static attr_t *attradd(attrlist_t al, int type)
 	al->len++;
 	at->type=type;
 	at->len=0;
-	at->value=NO_ATTR;
+	at->value=NULL;
 	return at;	
 }
 
@@ -114,7 +114,7 @@ void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
 	char *newvalue;
 	at=setup_access(al, name);	
 	/* a null value would delete the attribute */
-	if(value==NO_ATTR) {
+	if(value==NULL) {
 		if(at) attrdel(al,at); /* delete if there is no value */
 		return;
 	}
@@ -136,13 +136,13 @@ void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
 	attr_t *at;
 	at=setup_access(al, name);	
 	/* a null value would delete the attribute */
-	if(value==NO_ATTR) {
+	if(value==NULL) {
 		if(at) attrdel(al,at); /* delete if there is no value */
 		return;
 	}
 	/* discard the old attribute values */
 	free(at->value);
-	at->value=NO_ATTR;
+	at->value=NULL;
 	/* set the attribute */
 	at->len=len;
 	at->value=malloc(at->len+1);
@@ -174,7 +174,7 @@ int attrprintf(attrlist_t al, const char *name, const char *fmt, ...)
 	return len;
 }
 
-/* get an attribute, return NO_ATTR if not found */
+/* get an attribute, return NULL if not found */
 const char *attrget(attrlist_t al, const char *name)
 {
 	attr_t *at;
@@ -182,7 +182,7 @@ const char *attrget(attrlist_t al, const char *name)
 
 	type=attrtype(name);
 	at=attrlookup(al,type);
-	return at?at->value:NO_ATTR;
+	return at?at->value:NULL;
 }
 
 int attrlist(attrlist_t al, const char **name, const char **value, int *counter)

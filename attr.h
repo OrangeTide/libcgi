@@ -2,7 +2,6 @@
 #define ATTR_H
 #include <stdlib.h>
 #include <stdarg.h>
-#define NO_ATTR			(NULL)	/* no attribute */
 #define MAX_ATTR_LEN	1024	/* an arbitrary limit */
 typedef struct attribute_list *attrlist_t;
 
