@@ -32,6 +32,42 @@ void htmlset(html_t ht, const char *name, const char *val)
 	attrset(ht->attr, name, val);
 }
 
+static int ishex(const char code[2]) {
+	return isxdigit(code[0]) && isxdigit(code[0]);
+}
+
+/* verify with ishex() */
+static unsigned unhex(const char code[2]) {
+    const char hextab[] = {
+        ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
+        ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9, 
+        ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf, 
+        ['A']=0xa, ['B']=0xb, ['C']=0xc, ['D']=0xd, ['E']=0xe, ['F']=0xf,
+    };
+
+	return hextab[(unsigned)code[0]]*16 + hextab[(unsigned)code[1]];
+}
+
+static void escstr(char *dst, const char *src, size_t len) {
+	int di,si;
+	for(di=0,si=0;si<len;) {
+		if(src[si]=='%' && si+3<len) {
+			if(ishex(src+si+1)) {
+				dst[di++]=unhex(src+si+1);
+				si+=3;
+			} else {
+				dst[di++]=src[si++];
+			}
+		} else if(src[si]=='+') {
+			dst[di++]=' ';
+			si++;
+		} else {
+			dst[di++]=src[si++];
+		}
+	}
+	dst[di]=0;
+}
+
 static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
 	char namebuf[MAX_ATTR_LEN]; /* buffer to hold the current name element */
 	char valuebuf[MAX_ATTR_LEN]; /* buffer to hold the current value */
@@ -42,16 +78,16 @@ static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
 	for(headp=formdata;*headp;) {
 		tailp=headp+strcspn(headp,"=&");
 		len=tailp-headp<sizeof namebuf?tailp-headp:sizeof namebuf-1;
-		if(len) memcpy(namebuf,headp,len);
-		namebuf[len]=0;
+		if(len) escstr(namebuf,headp,len);
 		if(!tailp[0]) { valuebuf[0]=0; attrset(al,namebuf,valuebuf); break; }
 		headp=tailp+1;
 		if(tailp[0]=='&') { valuebuf[0]=0; attrset(al,namebuf,valuebuf); continue; }
 		tailp=headp+strcspn(headp,"&");
 		len=tailp-headp<sizeof valuebuf?tailp-headp:sizeof valuebuf-1;
-		if(len) memcpy(valuebuf,headp,len);
-		valuebuf[len]=0;
-		if(!tailp[0]) { attrset(al,namebuf,valuebuf); break; }
+		if(len) escstr(valuebuf,headp,len);
+		if(!tailp[0]) {
+			attrset(al,namebuf,valuebuf); break; 
+		}
 		headp=tailp+1;
 		attrset(al,namebuf,valuebuf);
 	}
@@ -75,8 +111,10 @@ static void load_post_data(html_t ht)
 	fprintf(stderr, "content_length=%ld\n", content_length);
 #endif
         if(content_length > 0 && content_length < MAX_POST_LEN)  {
+			FILE *dump;
             char *buf;
             int res;
+			dump=fopen("dump0", "w");
             buf=malloc(content_length+1);
             res=fread(buf, 1, content_length, ht->post_input);
             if(res<0) {
@@ -84,6 +122,8 @@ static void load_post_data(html_t ht)
                 exit(EXIT_FAILURE);
             }
 			buf[res]=0;
+            fwrite(buf, 1, content_length, dump);
+			fclose(dump);
             if(res!=content_length) {
                 fprintf(stderr, "Content-Length does not match what was read\n");
                 exit(EXIT_FAILURE);
