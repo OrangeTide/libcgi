@@ -23,7 +23,10 @@ static void dump_attr(html_t ht, attrlist_t al) {
 	const char *type, *value;
 	for(count=0;attrlist(al, &type, &value, &count);) {
 		/* TODO: escape special characters */
-		htmlprintf(ht, " %s=\"%s\"", type, value);
+		if(value && *value) 
+			htmlprintf(ht, " %s=\"%s\"", type, value);
+		else
+			htmlprintf(ht, " %s", type);
 	}
 }
 
@@ -51,7 +54,7 @@ static unsigned unhex(const char code[2]) {
 static void escstr(char *dst, const char *src, size_t len) {
 	int di,si;
 	for(di=0,si=0;si<len;) {
-		if(src[si]=='%' && si+3<len) {
+		if(src[si]=='%' && si+2<len) {
 			if(ishex(src+si+1)) {
 				dst[di++]=unhex(src+si+1);
 				si+=3;
@@ -228,7 +231,7 @@ void htmltagbegin ( html_t ht , const char *tag, attrlist_t attr)
 
 void htmltagend ( html_t ht , const char *tag )
 {
-	htmlprintf(ht, "</%s>", tag);
+	htmlprintf(ht, "</%s>\n", tag);
 }
 
 void htmltag(html_t ht, const char *tag, attrlist_t attr, const char *fmt, ...)
