@@ -14,7 +14,7 @@ int attrprintf(attrlist_t al, const char *name, const char *fmt, ...);
 int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap);
 const char *attrget ( attrlist_t al , const char *name );
 int attrlist ( attrlist_t al , const char **type , const char **value , int *counter );
-attrlist_t attrinit();
+attrlist_t attrinit(void);
 void attrfree(attrlist_t al);
 void namefree(void);
 
