@@ -1,9 +1,22 @@
 #!/usr/bin/make -f
-CFLAGS:=-Wall -Wshadow -pedantic -g -O2 -std=gnu99
+# crazy level of warnings
+CFLAGS:=-Wall -Wextra -Wuninitialized -Wshadow -Wsign-compare -Wconversion -Wstrict-prototypes -fstrict-aliasing -Wstrict-aliasing -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -std=c99 -pedantic
+# debug 
+CFLAGS+=-g -pg
+# optimize
+CFLAGS+=-O1
+# turn on POSIX/susv3 
+CPPFLAGS:=-D_XOPEN_SOURCE=600
 
-libcgi.a(cgi.o attr.o) : cgi.o attr.o
+OBJS:=cgi.o attr.o template.o mapfile.o
+libcgi.a : libcgi.a($(OBJS))
 
-.PHONY : clean
+testcgi : testcgi.c libcgi.a
+
+.PHONY : clean clean-all
 
 clean : 
-	$(RM) cgi.o attr.o libcgi.a
+	$(RM) $(OBJS) libcgi.a testcgi
+
+clean-all : clean
+	$(RM) *~

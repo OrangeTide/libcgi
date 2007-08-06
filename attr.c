@@ -23,6 +23,7 @@ static struct name_list
 {
 	int len;
 	char **data;
+	/* TODO: keep a reference count */
 } name_list;
 
 static int nameadd(const char *name)
@@ -218,6 +219,10 @@ void attrfree(attrlist_t al)
 
 void namefree(void)
 {
+	int i;
+	for(i=0;i<name_list.len;i++) {
+		free(name_list.data[i]);
+	}
 	free(name_list.data);
 	name_list.data=NULL;
 	name_list.len=0;

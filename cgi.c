@@ -9,7 +9,7 @@
 #include "cgi.h"
 #include "attr.h"
 
-struct html_t
+struct cgi_t
 {
 	FILE *output;
 	FILE *post_input;       /* used for reading POST */
@@ -18,21 +18,16 @@ struct html_t
 	attrlist_t cgienv;		/* holds special parameters for page rendering */
 };
 
-static void dump_attr(html_t ht, attrlist_t al) {
+static void dump_attr(cgi_t ht, attrlist_t al) {
 	int count;
 	const char *type, *value;
 	for(count=0;attrlist(al, &type, &value, &count);) {
 		/* TODO: escape special characters */
 		if(value && *value) 
-			htmlprintf(ht, " %s=\"%s\"", type, value);
+			cgi_printf(ht, " %s=\"%s\"", type, value);
 		else
-			htmlprintf(ht, " %s", type);
+			cgi_printf(ht, " %s", type);
 	}
-}
-
-void htmlset(html_t ht, const char *name, const char *val)
-{
-	attrset(ht->attr, name, val);
 }
 
 static int ishex(const char code[2]) {
@@ -52,7 +47,7 @@ static unsigned unhex(const char code[2]) {
 }
 
 static void escstr(char *dst, const char *src, size_t len) {
-	int di,si;
+	unsigned di,si;
 	for(di=0,si=0;si<len;) {
 		if(src[si]=='%' && si+2<len) {
 			if(ishex(src+si+1)) {
@@ -100,7 +95,7 @@ static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
 	}
 }
 
-static void load_post_data(html_t ht)
+static void load_post_data(cgi_t ht)
 {
 	const char *rm;
 	const char *cl;
@@ -142,7 +137,7 @@ static void load_post_data(html_t ht)
         }
 }
 
-static int load_query_string(html_t ht)
+static int load_query_string(cgi_t ht)
 {
 	const char *qs;
 	qs=getenv("QUERY_STRING");
@@ -152,9 +147,9 @@ static int load_query_string(html_t ht)
 	return 1;   
 }
 
-html_t htmlcreate(FILE *output, const char  *title)
+cgi_t cgi_init(void) 
 {
-	html_t ret;
+	cgi_t ret;
 
 #ifndef NDEBUG
 	freopen("log", "a", stderr);
@@ -166,9 +161,8 @@ html_t htmlcreate(FILE *output, const char  *title)
 #endif
 
 	ret=malloc(sizeof *ret);
-	ret->output=output;
+	ret->output=stdout;
 	ret->post_input=stdin;
-	ret->title=strdup(title);
 	ret->attr=attrinit();
 	ret->cgienv=attrinit();
 	load_post_data(ret);
@@ -176,135 +170,50 @@ html_t htmlcreate(FILE *output, const char  *title)
 	return ret;
 }
 
-int htmlvprintf(html_t ht, const char *fmt, va_list ap) 
+int cgi_vprintf(cgi_t ht, const char *fmt, va_list ap) 
 {
 	return vfprintf(ht->output, fmt, ap);
 }
 
-int htmlprintf(html_t ht, const char *fmt, ...)
+int cgi_printf(cgi_t ht, const char *fmt, ...)
 {
 	int ret;
 	va_list ap;
 	va_start(ap, fmt);
-	ret=htmlvprintf(ht, fmt, ap);
+	ret=cgi_vprintf(ht, fmt, ap);
 	va_end(ap);
 	return ret;
 }
 
-void htmlfree(html_t ht)
+void cgi_content(cgi_t ht, const char *content_type)
 {
-	ht->output=NULL; /* assume this will be closed someplace else */
-	free(ht->title);
-	attrfree(ht->attr);
-	attrfree(ht->cgienv);
-	free(ht);
+	cgi_printf(ht,"Content-Type: %s\n",content_type);
+	cgi_printf(ht,"Cache-Control: no-cache\n");
+	cgi_printf(ht, "\n");
 }
 
-void htmlbegin(html_t ht)
+void cgi_setparam(cgi_t ht, const char *name, const char *val)
 {
-	htmlprintf(ht, 
-		"<HTML>\n"
-		"<HEAD>\n");
-	
-	htmlprintf(ht, " <TITLE>%s</TITLE>\n", ht->title);
-
-	htmlprintf(ht,
-		"</HEAD>\n"
-		"<BODY>\n");
+	attrset(ht->attr, name, val);
 }
 
-void htmlend(html_t ht)
-{
-	htmlprintf(ht, "</BODY>\n</HTML>\n");
-}
-
-void htmltagbegin ( html_t ht , const char *tag, attrlist_t attr)
-{
-	if(attr) {
-		htmlprintf(ht, "<%s", tag);
-		dump_attr(ht, attr);
-		htmlprintf(ht, ">");
-	} else {
-		htmlprintf(ht, "<%s>", tag);
-	}
-}
-
-void htmltagend ( html_t ht , const char *tag )
-{
-	htmlprintf(ht, "</%s>\n", tag);
-}
-
-void htmltag(html_t ht, const char *tag, attrlist_t attr, const char *fmt, ...)
-{
-	va_list ap;
-	htmltagbegin(ht, tag, attr);
-	if(fmt) {
-		va_start(ap,fmt);
-		htmlvprintf(ht,fmt,ap);
-		va_end(ap);
-		htmlprintf(ht,"</%s>\n", tag);
-	}
-}
-
-void htmlcontent(html_t ht, const char *content_type)
-{
-	htmlprintf(ht,"Content-Type: %s\n",content_type);
-	htmlprintf(ht,"Cache-Control: no-cache\n");
-	htmlprintf(ht, "\n");
-}
-
-char *htmlmakelink(const char *href, const char  *label, ...)
-{
-	char *ret;
-	int ofs;
-	const int max=1024;
-	va_list ap;
-
-	va_start(ap,label);
-	ret=malloc(max);
-	if(!ret) return 0;
-
-	ofs=0;
-	ofs+=snprintf(ret+ofs, max-ofs, "<A HREF=\"%s\">", href);
-	if(ofs>=max) return ret;
-	ofs+=vsnprintf(ret+ofs, max-ofs, label, ap);
-	if(ofs>=max) return ret;
-	ofs+=snprintf(ret+ofs, max-ofs, "</A>");
-	return ret;
-}
-
-void htmlhyperlink(html_t ht, const char *href, const char  *label, ...)
-{
-	va_list ap;
-	va_start(ap,label);
-	htmlprintf(ht,"<A HREF=\"%s\">",href);
-	htmlvprintf(ht,label,ap);
-	htmlprintf(ht,"</A>\n");
-	va_end(ap);
-}
-
-void htmlheader(html_t ht, int level, const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap,fmt);
-	htmlprintf(ht,"<H%d>",level);
-	htmlvprintf(ht,fmt,ap);
-	htmlprintf(ht,"</H%d>\n",level);
-	va_end(ap);
-}
-
-const char *htmlget(html_t ht, const char *name)
+const char *cgi_param(cgi_t ht, const char *name)
 {
 	return attrget(ht->attr,name);
 }
 
-attrlist_t htmlattrlist ( html_t ht )
+attrlist_t cgi_attrlist(cgi_t ht)
 {
 	return ht->attr;
 }
 
-void htmlcgienvset(html_t ht, const char *name, const char *val)
+void cgi_setenv(cgi_t ht, const char *name, const char *val)
 {
 	attrset(ht->cgienv, name, val);
+}
+
+const char *cgi_getenv(cgi_t ht, const char *name)
+{
+	return attrget(ht->cgienv,name);
 }
 

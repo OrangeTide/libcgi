@@ -1,0 +1,22 @@
+<div class="message">
+	<div class="post">
+		<img class="usericon" src="${ICON_URL}">
+		<div class="header">
+			<div class="subject">
+				${SUBJECT}
+			</div>
+			<div class="date">
+				${DATE}
+			</div>
+			<div class="from">$FROM</div>
+		</div>
+		<div class="body">
+			${MESSAGE_BODY}
+		</div>
+	</div>
+	<div class="controls">
+		<div class="reply">Reply</div>
+		<div class="more">More</div>
+	</div>
+</div>
+$
