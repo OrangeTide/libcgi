@@ -99,7 +99,7 @@ static void load_post_data(cgi_t ht)
 {
 	const char *rm;
 	const char *cl;
-	long content_length;
+	unsigned content_length;
 	fprintf(stderr, "enter %s\n", __func__);
 	rm=getenv("REQUEST_METHOD");
 	/* only do the POST stuff if we're doing POST method */

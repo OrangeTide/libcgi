@@ -85,11 +85,12 @@ const char *mapfile_fd(struct mapfile_info *mi, int fd, const char *fd_name) {
 		perror(fd_name);
 		return NULL;
 	}
+	assert(st.st_size >= 0); /* do not pass mmap a negative value */
 	/* mmap() according to susv3 : "while the argument len need not meet a
 	 * size or alignment constraint, the implementation shall include, in
 	 * any mapping operation, any partial page specified by the range
 	 * [pa,pa+len)." */
-	ptr=mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	ptr=mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if(ptr==MAP_FAILED) {
 		perror(fd_name);
 		return NULL;
@@ -128,7 +129,8 @@ void mapfile_release(struct mapfile_info *mi) {
 #endif
 
 /* define to try the example code below */
-#ifdef STAND_ALONE
+#ifdef STAND_ALONE 
+/* Test code / example */
 #include <stdlib.h>
 
 /* just pass a list of filename to test this out on */
