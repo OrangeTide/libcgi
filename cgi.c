@@ -1,8 +1,12 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _XOPEN_SOURCE
+# include <strings.h>
+#endif
 #ifndef NDEBUG
 #include <time.h>
 #endif
@@ -102,6 +106,7 @@ static void load_post_data(cgi_t ht)
 	unsigned content_length;
 	fprintf(stderr, "enter %s\n", __func__);
 	rm=getenv("REQUEST_METHOD");
+	fprintf(stderr, "%s:%d: REQUEST_METHOD=\"%s\"\n", __FILE__, __LINE__, rm);
 	/* only do the POST stuff if we're doing POST method */
 	if(!rm || strcasecmp(rm, "POST")) 
 		return;
@@ -110,31 +115,45 @@ static void load_post_data(cgi_t ht)
 		return;
 	content_length=strtol(cl, 0, 0);
 #ifndef NDEBUG
-	fprintf(stderr, "content_length=%ld\n", content_length);
+	fprintf(stderr, "%s:%d: content_length=%u\n", __FILE__, __LINE__, content_length);
 #endif
-        if(content_length > 0 && content_length < MAX_POST_LEN)  {
-			FILE *dump;
-            char *buf;
-            int res;
-			dump=fopen("dump0", "w");
-            buf=malloc(content_length+1);
-            res=fread(buf, 1, content_length, ht->post_input);
-            if(res<0) {
-                perror("fread()");
-                exit(EXIT_FAILURE);
-            }
-			buf[res]=0;
-            fwrite(buf, 1, content_length, dump);
-			fclose(dump);
-            if(res!=content_length) {
-                fprintf(stderr, "Content-Length does not match what was read\n");
-                exit(EXIT_FAILURE);
-            }
-			fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
-			parse_form_urlencoded(ht->attr, buf);
-            free(buf);
+	if(content_length > 0 && content_length < MAX_POST_LEN)  {
+		char *buf;
+		int res;
+#ifndef NDEBUG
+		FILE *dump;
+		dump=fopen("dump", "w"); /* output to a dump file */
+		if(!dump) {
+			fprintf(stderr, "%s:%d:WARN:file 'dump' not writable, will not store post data.\n", __FILE__, __LINE__);
+		}
+#endif
+		buf=malloc(content_length+1);
+		if(!buf) {
+			fprintf(stderr, "%s:%d:ERROR:malloc(%u) failed!\n", __FILE__, __LINE__, content_length);
+			return;
+		}
+		assert(ht->post_input!=NULL);
+		res=fread(buf, 1, content_length, ht->post_input);
+		if(res<0) {
+			perror("fread()");
+			exit(EXIT_FAILURE);
+		}
+		buf[res]=0;
 
-        }
+#ifndef NDEBUG
+		if(dump) {
+			fwrite(buf, 1, content_length, dump);
+			fclose(dump);
+		}
+#endif
+		if(res!=content_length) {
+			fprintf(stderr, "Content-Length does not match what was read\n");
+			exit(EXIT_FAILURE);
+		}
+		fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
+		parse_form_urlencoded(ht->attr, buf);
+		free(buf);
+	}
 }
 
 static int load_query_string(cgi_t ht)
@@ -147,6 +166,7 @@ static int load_query_string(cgi_t ht)
 	return 1;   
 }
 
+/* TODO: implement flags to disable POST and/or GET methods */
 cgi_t cgi_init(void) 
 {
 	cgi_t ret;
@@ -165,8 +185,8 @@ cgi_t cgi_init(void)
 	ret->post_input=stdin;
 	ret->attr=attrinit();
 	ret->cgienv=attrinit();
-	load_post_data(ret);
 	load_query_string(ret);
+	load_post_data(ret); /* post data should take precedence */
 	return ret;
 }
 

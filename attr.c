@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#ifdef _XOPEN_SOURCE
+# include <strings.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include "attr.h"
@@ -32,7 +35,7 @@ static int nameadd(const char *name)
 	int type;
 
 	if(!name) abort();
-	name_list.data=realloc(name_list.data,(name_list.len+1)*sizeof *name_list.data);
+	name_list.data=realloc(name_list.data, (name_list.len+1)*sizeof *name_list.data);
 	type=name_list.len;
 	entry=name_list.data+type;
 	name_list.len++;
@@ -44,7 +47,7 @@ static int attrtype(const char *name)
 {
 	int i;
 	for(i=0;i<name_list.len;i++) {
-		if(!strcasecmp(name,name_list.data[i])) {
+		if(!strcasecmp(name, name_list.data[i])) {
 			return i;
 		}
 	}
@@ -68,7 +71,7 @@ static attr_t *attradd(attrlist_t al, int type)
 {
 	attr_t *at;
 
-	al->data=realloc(al->data,(al->len+1)*sizeof *al->data);
+	al->data=realloc(al->data, (al->len+1)*sizeof *al->data);
 	at=al->data+al->len;
 	al->len++;
 	at->type=type;
@@ -99,10 +102,10 @@ static attr_t *setup_access(attrlist_t al, const char *name) {
 	if(type==-1) { /* type not found add it to the global list */
 		type=nameadd(name);	
 	}
-	at=attrlookup(al,type);
+	at=attrlookup(al, type);
 	if(!at) {
 		/* create a new attribute if it doesn't exist */
-		at=attradd(al,type);
+		at=attradd(al, type);
 	} 
 
 	return at;
@@ -116,7 +119,7 @@ void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
 	at=setup_access(al, name);	
 	/* a null value would delete the attribute */
 	if(value==NULL) {
-		if(at) attrdel(al,at); /* delete if there is no value */
+		if(at) attrdel(al, at); /* delete if there is no value */
 		return;
 	}
 	/* append the string */
@@ -128,7 +131,7 @@ void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
 }
 
 void attrcat(attrlist_t al, const char *name, const char *value) {
-	attrcatn(al, name, value, strlen(value));
+	attrcatn(al, name, value, value ? strlen(value) : 0);
 }
 
 /* set an attribute */
@@ -138,7 +141,7 @@ void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
 	at=setup_access(al, name);	
 	/* a null value would delete the attribute */
 	if(value==NULL) {
-		if(at) attrdel(al,at); /* delete if there is no value */
+		if(at) attrdel(al, at); /* delete if there is no value */
 		return;
 	}
 	/* discard the old attribute values */
@@ -147,12 +150,12 @@ void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
 	/* set the attribute */
 	at->len=len;
 	at->value=malloc(at->len+1);
-	memcpy(at->value,value,at->len+1);
+	memcpy(at->value, value, at->len+1);
 }
 
 void attrset(attrlist_t al, const char *name, const char *value)
 {
-	attrsetn(al, name, value, strlen(value));
+	attrsetn(al, name, value, value ? strlen(value) : 0);
 }
 
 int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap)
@@ -182,7 +185,7 @@ const char *attrget(attrlist_t al, const char *name)
 	int type;
 
 	type=attrtype(name);
-	at=attrlookup(al,type);
+	at=attrlookup(al, type);
 	return at?at->value:NULL;
 }
 
@@ -232,10 +235,10 @@ void namefree(void)
 void attrdump(attrlist_t al)
 {
 	int cnt;
-	printf("CNT:%d\n",al->len);
+	printf("CNT:%d\n", al->len);
 	for(cnt=0;cnt<al->len;cnt++)
 	{
-		printf("%-20d|%40s\n",al->data[cnt].type,al->data[cnt].value);
+		printf("%-20d|%40s\n", al->data[cnt].type, al->data[cnt].value);
 	}
 	printf("\n");
 }

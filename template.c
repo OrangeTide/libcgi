@@ -155,6 +155,8 @@ void template_apply(struct template *t, attrlist_t al, FILE *out) {
 
 void template_free(struct template *t) {
 	struct entry *curr, *next;
+	if(!t) 
+		return; /* t=NULL then just leave */
 	for(curr=t->entry_list;curr;curr=next) {
 		next=curr->next;
 		free(curr);
