@@ -4,6 +4,12 @@
 #include "attr.h"
 #include "mapfile.h"
 #include "template.h"
+#ifdef WIN32
+#else
+/* POSIX systems can use write() to send mmap'd regions quickly.
+ * otherwise use ISO C fwrite/fprintf, which buffers and will be slower. */
+#include <unistd.h>
+#endif
 
 struct entry {
 	unsigned type; /* 0=raw 1=attribute */
@@ -126,13 +132,13 @@ struct template *template_loadfile(const char *filename) {
 }
 
 /* al - NULL to use a "dumping" mode */
-void template_apply(struct template *t, attrlist_t al, FILE *out) {
+void template_apply(struct template *t, attrlist_t al) {
 	struct entry *e;
 	char buf[64]; /* max macro length */
 	const char *tmp;
 
 	/* TODO: we could cache the attrget lookup */
-
+	fflush(stdout); /* we'll be using posix i/o instead of iso c */
 	for(e=t->entry_list;e;e=e->next) {
 		/* used for debugging :
 		 * fprintf(stderr, "::%u:%u:%.*s\n", e->type, e->len, e->len, e->data);
@@ -142,13 +148,27 @@ void template_apply(struct template *t, attrlist_t al, FILE *out) {
 			memcpy(buf, e->data, e->len);
 			buf[e->len]=0;
 			tmp=attrget(al, buf);
-			if(tmp) {
-				fputs(tmp, out);
+			if(tmp) { /* output macro data */
+#ifdef WIN32
+				fwrite(tmp, 1, strlen(tmp), stdout);
+#else
+				write(1, tmp, strlen(tmp)); 
+#endif
 			}
-		} else if(!al && e->type) {
-			fprintf(out, "${%.*s}", e->len, e->data);
-		} else {
-			fprintf(out, "%.*s", e->len, e->data);
+		} else if(!al && e->type) { /* debug mode because al==NULL */
+#ifdef WIN32
+			fprintf(stdout, "${%.*s}", e->len, e->data);
+#else
+			write(1, "${", 2);
+			write(1, e->data, e->len);
+			write(1, "}", 1);
+#endif
+		} else { /* raw data */
+#ifdef WIN32
+			write(e->data, 1, e->len, stdout);
+#else
+			write(1, e->data, e->len);
+#endif
 		}
 	}
 }
