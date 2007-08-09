@@ -13,7 +13,7 @@ typedef struct cgi_t *cgi_t;
 /* cgi.c */
 cgi_t cgi_init(void);
 int cgi_vprintf(cgi_t ht, const char *fmt, va_list ap);
-int cgi_printf(cgi_t ht, const char *fmt, ...);
+int cgi_printf(cgi_t ht, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 void cgi_content(cgi_t ht, const char *content_type);
 void cgi_setparam(cgi_t ht, const char *name, const char *val);
 const char *cgi_param(cgi_t ht, const char *name);

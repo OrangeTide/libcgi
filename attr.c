@@ -134,8 +134,54 @@ void attrcat(attrlist_t al, const char *name, const char *value) {
 	attrcatn(al, name, value, value ? strlen(value) : 0);
 }
 
+static unsigned escape_len(const unsigned char *s, size_t len) {
+	unsigned ret;
+	for(ret=0;len && *s;s++) {
+		switch(*s) {
+			case '<': ret+=4; len-=4; break; /* &lt; */
+			case '>': ret+=4; len-=4; break; /* &gt; */
+			case '&': ret+=5; len-=5; break; /* &amp; */
+			default:
+				ret++;
+				len--;
+		}
+	}
+	return ret;
+}
+
+static unsigned safe_append(char *dest, size_t len, const char *str) {
+	unsigned len2;
+	len2=strlen(str);
+	if(len2>len) {
+		return 0; /* refuse to append */
+	}
+	memcpy(dest, str, len2+1);
+	return len2;
+}
+
+static void html_escape(char *dest, size_t len, const char *s) {
+	unsigned i;
+
+	for(i=0;i<len && *s;s++) {
+		switch(*s) {
+			case '<':
+				i+=safe_append(dest+i,len-i, "&lt;");	
+				break;
+			case '>':
+				i+=safe_append(dest+i,len-i, "&gt;");	
+				break;
+			case '&':
+				i+=safe_append(dest+i,len-i, "&amp;");	
+				break;
+			default:
+				dest[i++]=*s;
+		}
+	}
+	dest[i]=0;
+}
+
 /* set an attribute */
-void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
+static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, const char *value, size_t len)
 {
 	attr_t *at;
 	at=setup_access(al, name);	
@@ -148,14 +194,27 @@ void attrsetn(attrlist_t al, const char *name, const char *value, size_t len)
 	free(at->value);
 	at->value=NULL;
 	/* set the attribute */
-	at->len=len;
-	at->value=malloc(at->len+1);
-	memcpy(at->value, value, at->len+1);
+	if(safe_fl) {
+		at->len=escape_len(value, len);
+		at->value=malloc(at->len+1);
+		html_escape(at->value, at->len, value);
+	} else {
+		at->len=len;
+		at->value=malloc(len+1);
+		memcpy(at->value, value, at->len+1);
+	}
 }
 
-void attrset(attrlist_t al, const char *name, const char *value)
-{
-	attrsetn(al, name, value, value ? strlen(value) : 0);
+void attrsetn(attrlist_t al, const char *name, const char *value, size_t len) {
+	attrsetn_internal(al, name, 0, value, len);
+}
+
+void attrset(attrlist_t al, const char *name, const char *value) {
+	attrsetn_internal(al, name, 0, value, value ? strlen(value) : 0);
+}
+
+void attrset_safe(attrlist_t al, const char *name, const char *value) {
+	attrsetn_internal(al, name, 1, value, value ? strlen(value) : 0);
 }
 
 int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap)
