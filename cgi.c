@@ -73,7 +73,7 @@ static void escstr(char *dst, const char *src, size_t len) {
 static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
 	char namebuf[MAX_ATTR_LEN]; /* buffer to hold the current name element */
 	char valuebuf[MAX_ATTR_LEN]; /* buffer to hold the current value */
-	int len;
+	unsigned len;
 	const char *headp; 
 	const char *tailp;
 	fprintf(stderr, "%d: formdata=\"%s\"\n", __LINE__, formdata);

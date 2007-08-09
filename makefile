@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 # crazy level of warnings
-CFLAGS:=-Wall -Wextra -Wuninitialized -Wshadow -Wsign-compare -Wconversion -Wstrict-prototypes -fstrict-aliasing -Wstrict-aliasing -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -std=c99 -pedantic
+CFLAGS:=-Wall -Wextra -Wconversion -Wuninitialized -Wshadow -Wstrict-prototypes -fstrict-aliasing -Wstrict-aliasing -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -std=c99 -pedantic
 # debug 
 CFLAGS+=-g -pg
 # optimize

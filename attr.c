@@ -134,7 +134,7 @@ void attrcat(attrlist_t al, const char *name, const char *value) {
 	attrcatn(al, name, value, value ? strlen(value) : 0);
 }
 
-static unsigned escape_len(const unsigned char *s, size_t len) {
+static unsigned escape_len(const char *s, size_t len) {
 	unsigned ret;
 	for(ret=0;len && *s;s++) {
 		switch(*s) {
