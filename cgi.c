@@ -1,3 +1,4 @@
+/* cgi.c - cgi API */
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -17,9 +18,10 @@ struct cgi_t
 {
 	FILE *output;
 	FILE *post_input;       /* used for reading POST */
-	char *title;
 	attrlist_t attr;        /* holds QUERY_STRING and POST values */
 	attrlist_t cgienv;		/* holds special parameters for page rendering */
+	char *content_type;
+	char *cache_control;
 };
 
 static void dump_attr(cgi_t ht, attrlist_t al) {
@@ -185,6 +187,8 @@ cgi_t cgi_init(void)
 	ret->post_input=stdin;
 	ret->attr=attrinit();
 	ret->cgienv=attrinit();
+	ret->content_type=0;
+	ret->cache_control=0;
 	load_query_string(ret);
 	load_post_data(ret); /* post data should take precedence */
 	return ret;
@@ -205,11 +209,29 @@ int cgi_printf(cgi_t ht, const char *fmt, ...)
 	return ret;
 }
 
-void cgi_content(cgi_t ht, const char *content_type)
+void cgi_set_content_type(cgi_t ht, const char *content_type)
 {
-	cgi_printf(ht,"Content-Type: %s\n",content_type);
-	cgi_printf(ht,"Cache-Control: no-cache\n");
+	free(ht->content_type);
+	ht->content_type=content_type?strdup(content_type):0;
+}
+
+void cgi_set_cache_control(cgi_t ht, const char *cache_control)
+{
+	free(ht->cache_control);
+	ht->cache_control=cache_control?strdup(cache_control):0;
+}
+
+void cgi_start_headers(cgi_t ht) {
+	/* default to text/plain content-type */
+	cgi_printf(ht,"Content-Type: %s\n", ht->content_type ? ht->content_type : "text/plain");
+	/* omit if cache_control not set */
+	if(ht->cache_control) {
+		cgi_printf(ht,"Cache-Control: %s\n", ht->cache_control);
+	}
+	/* begin document content */
 	cgi_printf(ht, "\n");
+	/* flush buffers */
+	fflush(ht->output);
 }
 
 void cgi_setparam(cgi_t ht, const char *name, const char *val)
@@ -237,3 +259,10 @@ const char *cgi_getenv(cgi_t ht, const char *name)
 	return attrget(ht->cgienv,name);
 }
 
+void cgi_free(cgi_t ht) {
+	cgi_set_content_type(ht, 0);
+	cgi_set_cache_control(ht, 0);
+	attrfree(ht->cgienv);
+	attrfree(ht->attr);
+	free(ht);
+}
