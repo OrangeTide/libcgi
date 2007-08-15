@@ -21,6 +21,7 @@ struct entry {
 
 struct template {
 	struct mapfile_info mi;
+	const char *cstr; /* constant string */
 	struct entry *entry_list;
 };
 
@@ -121,19 +122,35 @@ static struct entry *parse_string(const char *str, unsigned len) {
 	return ret;
 }
 
-struct template *template_loadfile(const char *filename) {
-	struct template *ret;
+template_t *template_loadfile(const char *filename) {
+	template_t *ret;
 	ret=malloc(sizeof *ret);
 	if(!mapfile(&ret->mi, filename)) {
 		free(ret);
 		return 0; /* failure */
 	}
+	ret->cstr=0;
 	ret->entry_list=parse_string(ret->mi.data, ret->mi.len);
 	return ret;
 }
 
+/** str parameter will be used until template_free() is called. no allocation
+ * or duplication will occur on str. */
+template_t *template_loadstring(const char *str, int len) {
+	template_t *ret;
+	assert(str!=NULL);
+	if(len<0) 
+		len=strlen(str);
+	ret=malloc(sizeof *ret);
+	ret->mi.data=0;
+	ret->mi.len=0;
+	ret->cstr=str;
+	ret->entry_list=parse_string(str, len);
+	return ret;
+}
+
 /* al - NULL to use a "dumping" mode */
-void template_apply(struct template *t, attrlist_t al) {
+void template_apply(template_t *t, attrlist_t al) {
 	struct entry *e;
 	char buf[64]; /* max macro length */
 	const _char *tmp;
@@ -174,7 +191,7 @@ void template_apply(struct template *t, attrlist_t al) {
 	}
 }
 
-void template_free(struct template *t) {
+void template_free(template_t *t) {
 	struct entry *curr, *next;
 	if(!t) 
 		return; /* t=NULL then just leave */
@@ -182,7 +199,10 @@ void template_free(struct template *t) {
 		next=curr->next;
 		free(curr);
 	}
-	mapfile_release(&t->mi);
+	/* check if this is a mapped file or a cstr */
+	if(t->mi.data) {
+		mapfile_release(&t->mi);
+	}
 	free(t);
 }
 

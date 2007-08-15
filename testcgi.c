@@ -17,16 +17,28 @@ int main(int argc, char **argv) {
 	attrset(al, "DATE", "[[DATE]]");
 	attrset(al, "FROM", "[[FROM]]");
 	attrset(al, "MESSAGE_BODY", "[[MESSAGE_BODY]]");
-		
+	
+	/* test with mapped files */
 	for(i=0;i<sizeof files/sizeof *files;i++) {
 		printf("::%s::\n", files[i]);
 		t=template_loadfile(files[i]);
 		if(t) {
-			template_apply(t, al, stdout);
+			template_apply(t, al);
 			template_free(t);
 		}
 		printf("\n");
 	}
+
+	/* test with a string */
+	printf("::STR::\n");
+	/* use a string that shows a bug in the code. $$$ at the end of a string */
+	t=template_loadstring("testing $DATE$FROM$MESSAGE_BODY$$$", -1);
+	if(t) {
+		template_apply(t, al);
+		template_free(t);
+	}
+	printf("\n");
+
 	attrfree(al);
 	namefree(); /* free the global list used by attr */
 	return 0;
