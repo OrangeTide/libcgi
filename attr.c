@@ -30,7 +30,7 @@ static struct name_list
 	/* TODO: keep a reference count */
 } name_list;
 
-static int nameadd(const _char *name)
+static int nameadd(const char *name)
 {
 	_char **entry;
 	int type;
@@ -45,7 +45,7 @@ static int nameadd(const _char *name)
 }
 
 /** gets the index in the name list of a given attribute name **/
-static int attrtype(const _char *name)
+static int attrtype(const char *name)
 {
 	unsigned i;
 	for(i=0;i<name_list.len;i++) {
@@ -96,7 +96,7 @@ static const _char *attrname(int type)
 	return name_list.data[type];
 }
 
-static attr_t *setup_access(attrlist_t al, const _char *name) {
+static attr_t *setup_access(attrlist_t al, const char *name) {
 	attr_t *at;
 	int type;
 
@@ -114,7 +114,7 @@ static attr_t *setup_access(attrlist_t al, const _char *name) {
 }
 
 /*** EXPORTED STUFF ***/
-void attrcatn(attrlist_t al, const _char *name, const _char *value, size_t len) {
+void attrcatn(attrlist_t al, const char *name, const _char *value, size_t len) {
 	attr_t *at;
 	size_t oldlen;
 	_char *newvalue;
@@ -132,7 +132,7 @@ void attrcatn(attrlist_t al, const _char *name, const _char *value, size_t len) 
 	at->value=newvalue;
 }
 
-void attrcat(attrlist_t al, const _char *name, const _char *value) {
+void attrcat(attrlist_t al, const char *name, const _char *value) {
 	attrcatn(al, name, value, value ? strlen((const char*)value) : 0);
 }
 
@@ -183,7 +183,7 @@ static void html_escape(_char *dest, size_t len, const _char *s) {
 }
 
 /* set an attribute */
-static void attrsetn_internal(attrlist_t al, const _char *name, int safe_fl, const _char *value, size_t len)
+static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, const _char *value, size_t len)
 {
 	attr_t *at;
 	at=setup_access(al, name);	
@@ -220,19 +220,19 @@ void attrdump(FILE *out, attrlist_t al)
 }
 #endif
 
-void attrsetn(attrlist_t al, const _char *name, const _char *value, size_t len) {
+void attrsetn(attrlist_t al, const char *name, const _char *value, size_t len) {
 	attrsetn_internal(al, name, 0, value, len);
 }
 
-void attrset(attrlist_t al, const _char *name, const _char *value) {
+void attrset(attrlist_t al, const char *name, const _char *value) {
 	attrsetn_internal(al, name, 0, value, value ? strlen((const char*)value) : 0);
 }
 
-void attrset_safe(attrlist_t al, const _char *name, const _char *value) {
+void attrset_safe(attrlist_t al, const char *name, const _char *value) {
 	attrsetn_internal(al, name, 1, value, value ? strlen((const char*)value) : 0);
 }
 
-int attrvprintf(attrlist_t al, const _char *name, const char *fmt, va_list ap)
+int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap)
 {
 	_char buf[MAX_ATTR_LEN];
 	int len;
@@ -242,7 +242,7 @@ int attrvprintf(attrlist_t al, const _char *name, const char *fmt, va_list ap)
 	return len;
 }
 
-int attrprintf(attrlist_t al, const _char *name, const char *fmt, ...)
+int attrprintf(attrlist_t al, const char *name, const char *fmt, ...)
 {
 	int len;
 	va_list ap;
@@ -253,7 +253,7 @@ int attrprintf(attrlist_t al, const _char *name, const char *fmt, ...)
 }
 
 /* get an attribute, return NULL if not found */
-const _char *attrget(attrlist_t al, const _char *name)
+const _char *attrget(attrlist_t al, const char *name)
 {
 	attr_t *at;
 	int type;
@@ -306,7 +306,7 @@ void namefree(void)
 }
 
 /* gets an attribute as a numeric value */
-int attrget_int(attrlist_t al, const _char *name, long *i) {
+int attrget_int(attrlist_t al, const char *name, long *i) {
 	long ret;
 	const char *tmp;
 	char *endptr;

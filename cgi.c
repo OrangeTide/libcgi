@@ -19,7 +19,6 @@ struct cgi_t
 	FILE *output;
 	FILE *post_input;       /* used for reading POST */
 	attrlist_t attr;        /* holds QUERY_STRING and POST values */
-	attrlist_t cgienv;		/* holds special parameters for page rendering */
 	char *content_type;
 	char *cache_control;
 };
@@ -87,23 +86,23 @@ static void parse_form_urlencoded(attrlist_t al, const _char *formdata) {
 		escstr(namebuf,headp,len);
 		if(!tailp[0]) { 
 			valuebuf[0]=0; 
-			attrset(al,namebuf,valuebuf); 
+			attrset(al,(const char*)namebuf,valuebuf); 
 			break; 
 		}
 		headp=tailp+1;
 		if(tailp[0]=='&') { 
-			attrset(al,namebuf,(_char*)"");
+			attrset(al,(const char*)namebuf,(_char*)"");
 			continue; 
 		}
 		tailp=headp+strcspn((char*)headp,"&");
 		len=(unsigned)(tailp-headp)<sizeof valuebuf?(unsigned)(tailp-headp):sizeof valuebuf-1;
 		escstr(valuebuf,headp,len);
 		if(!tailp[0]) {
-			attrset(al,namebuf,valuebuf);
+			attrset(al,(const char*)namebuf,valuebuf);
 			break; 
 		}
 		headp=tailp+1;
-		attrset(al,namebuf,valuebuf);
+		attrset(al,(const char*)namebuf,valuebuf);
 	}
 }
 
@@ -193,7 +192,6 @@ cgi_t cgi_init(void)
 	ret->output=stdout;
 	ret->post_input=stdin;
 	ret->attr=attrinit();
-	ret->cgienv=attrinit();
 	ret->content_type=0;
 	ret->cache_control=0;
 	load_query_string(ret);
@@ -241,12 +239,12 @@ void cgi_start_headers(cgi_t ht) {
 	fflush(ht->output);
 }
 
-void cgi_setparam(cgi_t ht, const _char *name, const _char *val)
+void cgi_setparam(cgi_t ht, const char *name, const _char *val)
 {
 	attrset(ht->attr, name, val);
 }
 
-const _char *cgi_param(cgi_t ht, const _char *name)
+const _char *cgi_param(cgi_t ht, const char *name)
 {
 	return attrget(ht->attr,name);
 }
@@ -256,27 +254,16 @@ attrlist_t cgi_attrlist(cgi_t ht)
 	return ht->attr;
 }
 
-void cgi_setenv(cgi_t ht, const _char *name, const _char *val)
-{
-	attrset(ht->cgienv, name, val);
-}
-
-const _char *cgi_getenv(cgi_t ht, const _char *name)
-{
-	return attrget(ht->cgienv,name);
-}
-
 void cgi_free(cgi_t ht)
 {
 	cgi_set_content_type(ht, 0);
 	cgi_set_cache_control(ht, 0);
-	attrfree(ht->cgienv);
 	attrfree(ht->attr);
 	free(ht);
 }
 
-int cgi_param_int(cgi_t c, const _char *name, long *i)
+int cgi_param_int(cgi_t c, const char *name, long *i)
 {
-	return attrget_int(c->cgienv, name, i);
+	return attrget_int(c->attr, name, i);
 }
 

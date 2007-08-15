@@ -135,7 +135,7 @@ struct template *template_loadfile(const char *filename) {
 /* al - NULL to use a "dumping" mode */
 void template_apply(struct template *t, attrlist_t al) {
 	struct entry *e;
-	_char buf[64]; /* max macro length */
+	char buf[64]; /* max macro length */
 	const _char *tmp;
 
 	/* TODO: we could cache the attrget lookup */
