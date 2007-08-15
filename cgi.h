@@ -20,11 +20,12 @@ int cgi_printf(cgi_t ht, const char *fmt, ...) __attribute__ ((format (printf, 2
 void cgi_set_content_type(cgi_t ht, const char *content_type);
 void cgi_set_cache_control(cgi_t ht, const char *cache_control);
 void cgi_start_headers(cgi_t ht);
-void cgi_setparam(cgi_t ht, const char *name, const char *val);
-const char *cgi_param(cgi_t ht, const char *name);
+void cgi_setparam(cgi_t ht, const _char *name, const _char *val);
+const _char *cgi_param(cgi_t ht, const _char *name);
 attrlist_t cgi_attrlist(cgi_t ht);
-void cgi_setenv(cgi_t ht, const char *name, const char *val);
-const char *cgi_getenv(cgi_t ht, const char *name);
+void cgi_setenv(cgi_t ht, const _char *name, const _char *val);
+const _char *cgi_getenv(cgi_t ht, const _char *name);
 void cgi_free(cgi_t ht);
+int cgi_param_int(cgi_t c, const _char *name, long *i);
 
 #endif /* CGI_H */

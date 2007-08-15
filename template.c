@@ -88,7 +88,7 @@ static struct entry *parse_string(const char *str, unsigned len) {
 			len--;
 			end=memchr(str, ch=='('?')':'}' , len);
 			if(end) {
-				*curr=create_entry(1, str, end-str);
+				*curr=create_entry(1, str, (unsigned)(end-str));
 				curr=&(*curr)->next;
 				if(len) end++; /* eat ) or } */
 				len-=end-str;
@@ -101,13 +101,13 @@ static struct entry *parse_string(const char *str, unsigned len) {
 			}
 		} else {
 			/* $XXX found */
-			for(end=str;(end-str)<len && (isalnum(*end) || *end=='_');end++) ;
+			for(end=str;(unsigned)(end-str)<len && (isalnum(*end) || *end=='_');end++) ;
 			if((end-str)>1) {
-				*curr=create_entry(1, str, end-str);
+				*curr=create_entry(1, str, (unsigned)(end-str));
 				curr=&(*curr)->next;
 			} else {
 				/* $ at end of string */
-				*curr=create_entry(0, str-1, end-str+1);
+				*curr=create_entry(0, str-1, (unsigned)(end-str+1));
 				curr=&(*curr)->next;
 			}
 			len-=end-str;
@@ -135,8 +135,8 @@ struct template *template_loadfile(const char *filename) {
 /* al - NULL to use a "dumping" mode */
 void template_apply(struct template *t, attrlist_t al) {
 	struct entry *e;
-	char buf[64]; /* max macro length */
-	const char *tmp;
+	_char buf[64]; /* max macro length */
+	const _char *tmp;
 
 	/* TODO: we could cache the attrget lookup */
 	fflush(stdout); /* we'll be using posix i/o instead of iso c */
@@ -151,9 +151,9 @@ void template_apply(struct template *t, attrlist_t al) {
 			tmp=attrget(al, buf);
 			if(tmp) { /* output macro data */
 #ifdef WIN32
-				fwrite(tmp, 1, strlen(tmp), stdout);
+				fwrite(tmp, 1, strlen((const char*)tmp), stdout);
 #else
-				write(1, tmp, strlen(tmp)); 
+				write(1, tmp, strlen((const char*)tmp)); 
 #endif
 			}
 		} else if(!al && e->type) { /* debug mode because al==NULL */

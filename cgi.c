@@ -24,9 +24,10 @@ struct cgi_t
 	char *cache_control;
 };
 
+#if 0
 static void dump_attr(cgi_t ht, attrlist_t al) {
 	int count;
-	const char *type, *value;
+	const _char *type, *value;
 	for(count=0;attrlist(al, &type, &value, &count);) {
 		/* TODO: escape special characters */
 		if(value && *value) 
@@ -35,14 +36,15 @@ static void dump_attr(cgi_t ht, attrlist_t al) {
 			cgi_printf(ht, " %s", type);
 	}
 }
+#endif
 
-static int ishex(const char code[2]) {
+static int ishex(const _char code[2]) {
 	return isxdigit(code[0]) && isxdigit(code[0]);
 }
 
 /* verify with ishex() */
-static unsigned unhex(const char code[2]) {
-    const char hextab[] = {
+static unsigned unhex(const _char code[2]) {
+    const _char hextab[] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
         ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9, 
         ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf, 
@@ -52,7 +54,7 @@ static unsigned unhex(const char code[2]) {
 	return hextab[(unsigned)code[0]]*16 + hextab[(unsigned)code[1]];
 }
 
-static void escstr(char *dst, const char *src, size_t len) {
+static void escstr(_char *dst, const _char *src, size_t len) {
 	unsigned di,si;
 	for(di=0,si=0;si<len;) {
 		if(src[si]=='%' && si+2<len) {
@@ -72,25 +74,29 @@ static void escstr(char *dst, const char *src, size_t len) {
 	dst[di]=0;
 }
 
-static void parse_form_urlencoded(attrlist_t al, const char *formdata) {
-	char namebuf[MAX_ATTR_LEN]; /* buffer to hold the current name element */
-	char valuebuf[MAX_ATTR_LEN]; /* buffer to hold the current value */
+static void parse_form_urlencoded(attrlist_t al, const _char *formdata) {
+	_char namebuf[MAX_ATTR_LEN]; /* buffer to hold the current name element */
+	_char valuebuf[MAX_ATTR_LEN]; /* buffer to hold the current value */
 	unsigned len;
-	const char *headp; 
-	const char *tailp;
+	const _char *headp; 
+	const _char *tailp;
 	fprintf(stderr, "%d: formdata=\"%s\"\n", __LINE__, formdata);
 	for(headp=formdata;*headp;) {
-		tailp=headp+strcspn(headp,"=&");
-		len=tailp-headp<sizeof namebuf?tailp-headp:sizeof namebuf-1;
+		tailp=headp+strcspn((char*)headp,"=&");
+		len=(unsigned)(tailp-headp)<sizeof namebuf?(unsigned)(tailp-headp):sizeof namebuf-1;
 		escstr(namebuf,headp,len);
-		if(!tailp[0]) { valuebuf[0]=0; attrset(al,namebuf,valuebuf); break; }
+		if(!tailp[0]) { 
+			valuebuf[0]=0; 
+			attrset(al,namebuf,valuebuf); 
+			break; 
+		}
 		headp=tailp+1;
 		if(tailp[0]=='&') { 
-			attrset(al,namebuf,"");
+			attrset(al,namebuf,(_char*)"");
 			continue; 
 		}
-		tailp=headp+strcspn(headp,"&");
-		len=tailp-headp<sizeof valuebuf?tailp-headp:sizeof valuebuf-1;
+		tailp=headp+strcspn((char*)headp,"&");
+		len=(unsigned)(tailp-headp)<sizeof valuebuf?(unsigned)(tailp-headp):sizeof valuebuf-1;
 		escstr(valuebuf,headp,len);
 		if(!tailp[0]) {
 			attrset(al,namebuf,valuebuf);
@@ -115,12 +121,12 @@ static void load_post_data(cgi_t ht)
 	cl=getenv("CONTENT_LENGTH");
 	if(!cl)
 		return;
-	content_length=strtol(cl, 0, 0);
+	content_length=strtol((const char*)cl, 0, 0);
 #ifndef NDEBUG
 	fprintf(stderr, "%s:%d: content_length=%u\n", __FILE__, __LINE__, content_length);
 #endif
 	if(content_length > 0 && content_length < MAX_POST_LEN)  {
-		char *buf;
+		_char *buf;
 		int res;
 #ifndef NDEBUG
 		FILE *dump;
@@ -140,6 +146,7 @@ static void load_post_data(cgi_t ht)
 			perror("fread()");
 			exit(EXIT_FAILURE);
 		}
+		/*- after this point res is unsigned -*/
 		buf[res]=0;
 
 #ifndef NDEBUG
@@ -148,7 +155,7 @@ static void load_post_data(cgi_t ht)
 			fclose(dump);
 		}
 #endif
-		if(res!=content_length) {
+		if((unsigned)res!=content_length) {
 			fprintf(stderr, "Content-Length does not match what was read\n");
 			exit(EXIT_FAILURE);
 		}
@@ -164,7 +171,7 @@ static int load_query_string(cgi_t ht)
 	qs=getenv("QUERY_STRING");
 	if(!qs) return 0;
 	fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
-	parse_form_urlencoded(ht->attr, qs);
+	parse_form_urlencoded(ht->attr, (const _char*)qs);
 	return 1;   
 }
 
@@ -234,12 +241,12 @@ void cgi_start_headers(cgi_t ht) {
 	fflush(ht->output);
 }
 
-void cgi_setparam(cgi_t ht, const char *name, const char *val)
+void cgi_setparam(cgi_t ht, const _char *name, const _char *val)
 {
 	attrset(ht->attr, name, val);
 }
 
-const char *cgi_param(cgi_t ht, const char *name)
+const _char *cgi_param(cgi_t ht, const _char *name)
 {
 	return attrget(ht->attr,name);
 }
@@ -249,20 +256,27 @@ attrlist_t cgi_attrlist(cgi_t ht)
 	return ht->attr;
 }
 
-void cgi_setenv(cgi_t ht, const char *name, const char *val)
+void cgi_setenv(cgi_t ht, const _char *name, const _char *val)
 {
 	attrset(ht->cgienv, name, val);
 }
 
-const char *cgi_getenv(cgi_t ht, const char *name)
+const _char *cgi_getenv(cgi_t ht, const _char *name)
 {
 	return attrget(ht->cgienv,name);
 }
 
-void cgi_free(cgi_t ht) {
+void cgi_free(cgi_t ht)
+{
 	cgi_set_content_type(ht, 0);
 	cgi_set_cache_control(ht, 0);
 	attrfree(ht->cgienv);
 	attrfree(ht->attr);
 	free(ht);
 }
+
+int cgi_param_int(cgi_t c, const _char *name, long *i)
+{
+	return attrget_int(c->cgienv, name, i);
+}
+

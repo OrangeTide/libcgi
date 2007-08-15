@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef _XOPEN_SOURCE
@@ -10,28 +11,28 @@
 struct attribute
 {
 	int type;
-	char *value;
-	int len; /* string length */
+	_char *value;
+	unsigned len; /* string length */
 	/* int value; */
 };
 typedef struct attribute attr_t;
 
 struct attribute_list
 {
-	int len;
+	unsigned len;
 	attr_t *data;
 };
 
 static struct name_list
 {
-	int len;
-	char **data;
+	unsigned len;
+	_char **data;
 	/* TODO: keep a reference count */
 } name_list;
 
-static int nameadd(const char *name)
+static int nameadd(const _char *name)
 {
-	char **entry;
+	_char **entry;
 	int type;
 
 	if(!name) abort();
@@ -39,15 +40,16 @@ static int nameadd(const char *name)
 	type=name_list.len;
 	entry=name_list.data+type;
 	name_list.len++;
-	*entry=strdup(name);	
+	*entry=(_char*)strdup((const char*)name);	
 	return type;
 }
 
-static int attrtype(const char *name)
+/** gets the index in the name list of a given attribute name **/
+static int attrtype(const _char *name)
 {
-	int i;
+	unsigned i;
 	for(i=0;i<name_list.len;i++) {
-		if(!strcasecmp(name, name_list.data[i])) {
+		if(!strcasecmp((const char*)name, (const char*)name_list.data[i])) {
 			return i;
 		}
 	}
@@ -56,7 +58,7 @@ static int attrtype(const char *name)
 
 static attr_t *attrlookup(attrlist_t al, int type)
 {
-	int i;
+	unsigned i;
 
 	if(type<0) return NULL; /* not found */
 
@@ -88,13 +90,13 @@ static void attrdel(attrlist_t al, attr_t *at)
 	al->data[ofs]=al->data[al->len];
 }
 
-static const char *attrname(int type)
+static const _char *attrname(int type)
 {
-	if(type<0 || type>=name_list.len) return NULL; /* no name */
+	if(type<0 || (unsigned)type>=name_list.len) return NULL; /* no name */
 	return name_list.data[type];
 }
 
-static attr_t *setup_access(attrlist_t al, const char *name) {
+static attr_t *setup_access(attrlist_t al, const _char *name) {
 	attr_t *at;
 	int type;
 
@@ -112,10 +114,10 @@ static attr_t *setup_access(attrlist_t al, const char *name) {
 }
 
 /*** EXPORTED STUFF ***/
-void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
+void attrcatn(attrlist_t al, const _char *name, const _char *value, size_t len) {
 	attr_t *at;
 	size_t oldlen;
-	char *newvalue;
+	_char *newvalue;
 	at=setup_access(al, name);	
 	/* a null value would delete the attribute */
 	if(value==NULL) {
@@ -130,11 +132,11 @@ void attrcatn(attrlist_t al, const char *name, const char *value, size_t len) {
 	at->value=newvalue;
 }
 
-void attrcat(attrlist_t al, const char *name, const char *value) {
-	attrcatn(al, name, value, value ? strlen(value) : 0);
+void attrcat(attrlist_t al, const _char *name, const _char *value) {
+	attrcatn(al, name, value, value ? strlen((const char*)value) : 0);
 }
 
-static unsigned escape_len(const char *s, size_t len) {
+static unsigned escape_len(const _char *s, size_t len) {
 	unsigned ret;
 	for(ret=0;len && *s;s++) {
 		switch(*s) {
@@ -149,9 +151,9 @@ static unsigned escape_len(const char *s, size_t len) {
 	return ret;
 }
 
-static unsigned safe_append(char *dest, size_t len, const char *str) {
+static unsigned safe_append(_char *dest, size_t len, const _char *str) {
 	unsigned len2;
-	len2=strlen(str);
+	len2=strlen((const char*)str);
 	if(len2>len) {
 		return 0; /* refuse to append */
 	}
@@ -159,19 +161,19 @@ static unsigned safe_append(char *dest, size_t len, const char *str) {
 	return len2;
 }
 
-static void html_escape(char *dest, size_t len, const char *s) {
+static void html_escape(_char *dest, size_t len, const _char *s) {
 	unsigned i;
 
 	for(i=0;i<len && *s;s++) {
 		switch(*s) {
 			case '<':
-				i+=safe_append(dest+i,len-i, "&lt;");	
+				i+=safe_append(dest+i,len-i, (_char*)"&lt;");	
 				break;
 			case '>':
-				i+=safe_append(dest+i,len-i, "&gt;");	
+				i+=safe_append(dest+i,len-i, (_char*)"&gt;");	
 				break;
 			case '&':
-				i+=safe_append(dest+i,len-i, "&amp;");	
+				i+=safe_append(dest+i,len-i, (_char*)"&amp;");	
 				break;
 			default:
 				dest[i++]=*s;
@@ -181,7 +183,7 @@ static void html_escape(char *dest, size_t len, const char *s) {
 }
 
 /* set an attribute */
-static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, const char *value, size_t len)
+static void attrsetn_internal(attrlist_t al, const _char *name, int safe_fl, const _char *value, size_t len)
 {
 	attr_t *at;
 	at=setup_access(al, name);	
@@ -205,29 +207,42 @@ static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, cons
 	}
 }
 
-void attrsetn(attrlist_t al, const char *name, const char *value, size_t len) {
+#ifndef NDEBUF
+void attrdump(FILE *out, attrlist_t al)
+{
+	unsigned cnt;
+	fprintf(out, "CNT:%u\n", al->len);
+	for(cnt=0;cnt<al->len;cnt++)
+	{
+		fprintf(out, "%-20d|%40s\n", al->data[cnt].type, al->data[cnt].value);
+	}
+	fprintf(out, "\n");
+}
+#endif
+
+void attrsetn(attrlist_t al, const _char *name, const _char *value, size_t len) {
 	attrsetn_internal(al, name, 0, value, len);
 }
 
-void attrset(attrlist_t al, const char *name, const char *value) {
-	attrsetn_internal(al, name, 0, value, value ? strlen(value) : 0);
+void attrset(attrlist_t al, const _char *name, const _char *value) {
+	attrsetn_internal(al, name, 0, value, value ? strlen((const char*)value) : 0);
 }
 
-void attrset_safe(attrlist_t al, const char *name, const char *value) {
-	attrsetn_internal(al, name, 1, value, value ? strlen(value) : 0);
+void attrset_safe(attrlist_t al, const _char *name, const _char *value) {
+	attrsetn_internal(al, name, 1, value, value ? strlen((const char*)value) : 0);
 }
 
-int attrvprintf(attrlist_t al, const char *name, const char *fmt, va_list ap)
+int attrvprintf(attrlist_t al, const _char *name, const char *fmt, va_list ap)
 {
-	char buf[MAX_ATTR_LEN];
+	_char buf[MAX_ATTR_LEN];
 	int len;
-	len=vsnprintf(buf, sizeof buf, fmt, ap);
+	len=vsnprintf((char*)buf, sizeof buf, fmt, ap);
 	if(len>=0)
 		attrset(al, name, buf);
 	return len;
 }
 
-int attrprintf(attrlist_t al, const char *name, const char *fmt, ...)
+int attrprintf(attrlist_t al, const _char *name, const char *fmt, ...)
 {
 	int len;
 	va_list ap;
@@ -238,7 +253,7 @@ int attrprintf(attrlist_t al, const char *name, const char *fmt, ...)
 }
 
 /* get an attribute, return NULL if not found */
-const char *attrget(attrlist_t al, const char *name)
+const _char *attrget(attrlist_t al, const _char *name)
 {
 	attr_t *at;
 	int type;
@@ -248,9 +263,9 @@ const char *attrget(attrlist_t al, const char *name)
 	return at?at->value:NULL;
 }
 
-int attrlist(attrlist_t al, const char **name, const char **value, int *counter)
+int attrlist(attrlist_t al, const _char **name, const _char **value, int *counter)
 {
-	if((*counter)<al->len) {
+	if((unsigned)(*counter)<al->len) {
 		*name=attrname(al->data[*counter].type);
 		*value=al->data[*counter].value;
 		(*counter)++;
@@ -271,7 +286,7 @@ attrlist_t attrinit(void)
 
 void attrfree(attrlist_t al)
 {
-	int i;
+	unsigned i;
 	for(i=0;i<al->len;i++) {
 		free(al->data[i].value);
 	}
@@ -281,7 +296,7 @@ void attrfree(attrlist_t al)
 
 void namefree(void)
 {
-	int i;
+	unsigned i;
 	for(i=0;i<name_list.len;i++) {
 		free(name_list.data[i]);
 	}
@@ -290,16 +305,25 @@ void namefree(void)
 	name_list.len=0;
 }
 
-/*
-void attrdump(attrlist_t al)
-{
-	int cnt;
-	printf("CNT:%d\n", al->len);
-	for(cnt=0;cnt<al->len;cnt++)
-	{
-		printf("%-20d|%40s\n", al->data[cnt].type, al->data[cnt].value);
+/* gets an attribute as a numeric value */
+int attrget_int(attrlist_t al, const _char *name, long *i) {
+	long ret;
+	const char *tmp;
+	char *endptr;
+
+	assert(i!=NULL);
+	assert(al!=NULL);
+	assert(name!=NULL);
+	tmp=(const char*)attrget(al, name);
+	if(!tmp) {
+		return 0; /* failure */
 	}
-	printf("\n");
+	ret=strtoul(tmp, &endptr, 10);
+	assert(endptr!=NULL);
+	if(endptr==tmp || *endptr) {
+		return 0; /* failure */
+	}
+	*i=ret;
+	return 1; /* success */
 }
-*/
 
