@@ -21,6 +21,7 @@ struct cgi_t
 	attrlist_t attr;        /* holds QUERY_STRING and POST values */
 	char *content_type;
 	char *cache_control;
+	int has_sent_headers;
 };
 
 #if 0
@@ -194,6 +195,7 @@ cgi_t cgi_init(void)
 	ret->attr=attrinit();
 	ret->content_type=0;
 	ret->cache_control=0;
+	ret->has_sent_headers=0;
 	load_query_string(ret);
 	load_post_data(ret); /* post data should take precedence */
 	return ret;
@@ -201,12 +203,20 @@ cgi_t cgi_init(void)
 
 int cgi_vprintf(cgi_t ht, const char *fmt, va_list ap) 
 {
+	if(!ht->has_sent_headers) {
+		fprintf(stderr, "%s:%d:%s() called before cgi_start_headers().\n", __FILE__, __LINE__, __func__);
+		return 0;
+	}
 	return vfprintf(ht->output, fmt, ap);
 }
 
 int cgi_printf(cgi_t ht, const char *fmt, ...)
 {
 	int ret;
+	if(!ht->has_sent_headers) {
+		fprintf(stderr, "%s:%d:%s() called before cgi_start_headers().\n", __FILE__, __LINE__, __func__);
+		return 0;
+	}
 	va_list ap;
 	va_start(ap, fmt);
 	ret=cgi_vprintf(ht, fmt, ap);
@@ -227,6 +237,11 @@ void cgi_set_cache_control(cgi_t ht, const char *cache_control)
 }
 
 void cgi_start_headers(cgi_t ht) {
+	if(ht->has_sent_headers) {
+		fprintf(stderr, "%s:%d:multiple requests to %s().\n", __FILE__, __LINE__, __func__);
+		return;
+	}
+	ht->has_sent_headers++;
 	/* default to text/plain content-type */
 	cgi_printf(ht,"Content-Type: %s\n", ht->content_type ? ht->content_type : "text/plain");
 	/* omit if cache_control not set */
