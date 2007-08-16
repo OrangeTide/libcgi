@@ -145,7 +145,7 @@ template_t *template_loadstring(const char *str, int len) {
 	ret->mi.data=0;
 	ret->mi.len=0;
 	ret->cstr=str;
-	ret->entry_list=parse_string(str, len);
+	ret->entry_list=parse_string(str, (unsigned)len);
 	return ret;
 }
 
