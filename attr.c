@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "attr.h"
+#include "escape.h"
 
 struct attribute
 {
@@ -136,51 +137,6 @@ void attrcat(attrlist_t al, const char *name, const _char *value) {
 	attrcatn(al, name, value, value ? strlen((const char*)value) : 0);
 }
 
-static unsigned escape_len(const _char *s, size_t len) {
-	unsigned ret;
-	for(ret=0;len && *s;s++) {
-		switch(*s) {
-			case '<': ret+=4; len-=4; break; /* &lt; */
-			case '>': ret+=4; len-=4; break; /* &gt; */
-			case '&': ret+=5; len-=5; break; /* &amp; */
-			default:
-				ret++;
-				len--;
-		}
-	}
-	return ret;
-}
-
-static unsigned safe_append(_char *dest, size_t len, const _char *str) {
-	unsigned len2;
-	len2=strlen((const char*)str);
-	if(len2>len) {
-		return 0; /* refuse to append */
-	}
-	memcpy(dest, str, len2+1);
-	return len2;
-}
-
-static void html_escape(_char *dest, size_t len, const _char *s) {
-	unsigned i;
-
-	for(i=0;i<len && *s;s++) {
-		switch(*s) {
-			case '<':
-				i+=safe_append(dest+i,len-i, (_char*)"&lt;");	
-				break;
-			case '>':
-				i+=safe_append(dest+i,len-i, (_char*)"&gt;");	
-				break;
-			case '&':
-				i+=safe_append(dest+i,len-i, (_char*)"&amp;");	
-				break;
-			default:
-				dest[i++]=*s;
-		}
-	}
-	dest[i]=0;
-}
 
 /* set an attribute */
 static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, const _char *value, size_t len)
@@ -197,7 +153,7 @@ static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, cons
 	at->value=NULL;
 	/* set the attribute */
 	if(safe_fl) {
-		at->len=escape_len(value, len);
+		at->len=html_escape_len(value, len);
 		at->value=malloc(at->len+1);
 		html_escape(at->value, at->len, value);
 	} else {

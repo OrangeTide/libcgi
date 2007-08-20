@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
 #include "attr.h"
 
 /* biggest POST message we will process */
@@ -25,5 +26,11 @@ const _char *cgi_param(cgi_t ht, const char *name);
 attrlist_t cgi_attrlist(cgi_t ht);
 void cgi_free(cgi_t ht);
 int cgi_param_int(cgi_t c, const char *name, long *i);
-
+int cgi_set_cookie(cgi_t c, const char *name, const char *fmt, ...) __attribute__( (format (printf, 3, 4)));
+void cgi_set_cookie_expires(cgi_t c, time_t value);
+void cgi_set_cookie_domain(cgi_t c, const char *value);
+void cgi_set_cookie_path(cgi_t c, const char *value);
+void cgi_set_cookie_secure(cgi_t c, int secure);
+const _char *cgi_cookie(cgi_t c, const char *name);
+int cgi_cookie_int(cgi_t c, const char *name, long *i);
 #endif /* CGI_H */

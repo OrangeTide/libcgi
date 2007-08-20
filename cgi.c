@@ -8,11 +8,10 @@
 #ifdef _XOPEN_SOURCE
 # include <strings.h>
 #endif
-#ifndef NDEBUG
 #include <time.h>
-#endif
 #include "cgi.h"
 #include "attr.h"
+#include "escape.h"
 
 struct cgi_t
 {
@@ -22,18 +21,25 @@ struct cgi_t
 	char *content_type;
 	char *cache_control;
 	int has_sent_headers;
+	attrlist_t client_cookies; /* HTTP_COOKIE */
+	attrlist_t cookies_out; /* used to fill in the Set-Cookie header */
+	struct {
+		char *domain, *path;
+		time_t expires; /* 0 means not set */
+		int secure;
+	} cookies_out_attributes; /* attributes used for cookies_out */
 };
 
 #if 0
-static void dump_attr(cgi_t ht, attrlist_t al) {
+static void dump_attr(cgi_t c, attrlist_t al) {
 	int count;
 	const _char *type, *value;
 	for(count=0;attrlist(al, &type, &value, &count);) {
 		/* TODO: escape special characters */
 		if(value && *value) 
-			cgi_printf(ht, " %s=\"%s\"", type, value);
+			cgi_printf(c, " %s=\"%s\"", type, value);
 		else
-			cgi_printf(ht, " %s", type);
+			cgi_printf(c, " %s", type);
 	}
 }
 #endif
@@ -42,7 +48,7 @@ static int ishex(const _char code[2]) {
 	return isxdigit(code[0]) && isxdigit(code[0]);
 }
 
-/* verify with ishex() */
+/* verify with ishex() before calling */
 static unsigned unhex(const _char code[2]) {
     const _char hextab[] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
@@ -54,8 +60,9 @@ static unsigned unhex(const _char code[2]) {
 	return hextab[(unsigned)code[0]]*16 + hextab[(unsigned)code[1]];
 }
 
-static void escstr(_char *dst, const _char *src, size_t len) {
-	unsigned di,si;
+/* decodes %xx and + from strings used in CGI queries */
+static void decode_cgi_string(_char *dst, const _char *src, size_t len) {
+	unsigned di, si;
 	for(di=0,si=0;si<len;) {
 		if(src[si]=='%' && si+2<len) {
 			if(ishex(src+si+1)) {
@@ -82,32 +89,32 @@ static void parse_form_urlencoded(attrlist_t al, const _char *formdata) {
 	const _char *tailp;
 	fprintf(stderr, "%d: formdata=\"%s\"\n", __LINE__, formdata);
 	for(headp=formdata;*headp;) {
-		tailp=headp+strcspn((char*)headp,"=&");
+		tailp=headp+strcspn((char*)headp, "=&");
 		len=(unsigned)(tailp-headp)<sizeof namebuf?(unsigned)(tailp-headp):sizeof namebuf-1;
-		escstr(namebuf,headp,len);
+		decode_cgi_string(namebuf, headp, len);
 		if(!tailp[0]) { 
 			valuebuf[0]=0; 
-			attrset(al,(const char*)namebuf,valuebuf); 
+			attrset(al, (const char*)namebuf, valuebuf); 
 			break; 
 		}
 		headp=tailp+1;
 		if(tailp[0]=='&') { 
-			attrset(al,(const char*)namebuf,(_char*)"");
+			attrset(al, (const char*)namebuf, (_char*)"");
 			continue; 
 		}
-		tailp=headp+strcspn((char*)headp,"&");
+		tailp=headp+strcspn((char*)headp, "&");
 		len=(unsigned)(tailp-headp)<sizeof valuebuf?(unsigned)(tailp-headp):sizeof valuebuf-1;
-		escstr(valuebuf,headp,len);
+		decode_cgi_string(valuebuf, headp, len);
 		if(!tailp[0]) {
-			attrset(al,(const char*)namebuf,valuebuf);
+			attrset(al, (const char*)namebuf, valuebuf);
 			break; 
 		}
 		headp=tailp+1;
-		attrset(al,(const char*)namebuf,valuebuf);
+		attrset(al, (const char*)namebuf, valuebuf);
 	}
 }
 
-static void load_post_data(cgi_t ht)
+static void load_post_data(cgi_t c)
 {
 	const char *rm;
 	const char *cl;
@@ -121,7 +128,7 @@ static void load_post_data(cgi_t ht)
 	cl=getenv("CONTENT_LENGTH");
 	if(!cl)
 		return;
-	content_length=strtol((const char*)cl, 0, 0);
+	content_length=strtol(cl, 0, 0);
 #ifndef NDEBUG
 	fprintf(stderr, "%s:%d: content_length=%u\n", __FILE__, __LINE__, content_length);
 #endif
@@ -140,8 +147,8 @@ static void load_post_data(cgi_t ht)
 			fprintf(stderr, "%s:%d:ERROR:malloc(%u) failed!\n", __FILE__, __LINE__, content_length);
 			return;
 		}
-		assert(ht->post_input!=NULL);
-		res=fread(buf, 1, content_length, ht->post_input);
+		assert(c->post_input!=NULL);
+		res=fread(buf, 1, content_length, c->post_input);
 		if(res<0) {
 			perror("fread()");
 			exit(EXIT_FAILURE);
@@ -160,19 +167,97 @@ static void load_post_data(cgi_t ht)
 			exit(EXIT_FAILURE);
 		}
 		fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
-		parse_form_urlencoded(ht->attr, buf);
+		parse_form_urlencoded(c->attr, buf);
 		free(buf);
 	}
 }
 
-static int load_query_string(cgi_t ht)
+static int load_query_string(cgi_t c)
 {
 	const char *qs;
 	qs=getenv("QUERY_STRING");
 	if(!qs) return 0;
 	fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
-	parse_form_urlencoded(ht->attr, (const _char*)qs);
+	parse_form_urlencoded(c->attr, (const _char*)qs);
 	return 1;   
+}
+
+static int load_http_cookies(cgi_t c)
+{
+	const _char *hc;
+	unsigned ofs; /* offset into hc */
+	unsigned var_st; /* start of VAR=VALUE */
+	unsigned var_en; /* end of VAR in VAR=VALUE */
+	unsigned val_st; /* start of VALUE in VAR=VALUE */
+	unsigned state;
+	hc=(const _char*)getenv("HTTP_COOKIE");
+	if(!hc)
+		return 0;
+	if(!c->client_cookies) {
+		c->client_cookies=attrinit();
+	}
+	/* parse string for cookies */
+	for(ofs=0,state=0,var_st=0,var_en=0,val_st=0;ofs<MAX_COOKIE_LEN;ofs++) {
+		if(!hc[ofs] || hc[ofs]==';') {
+			/* BUG: we don't support VAR; syntax. only VAR=; 
+			 * this breaks supporting the "secure" attribute. */
+			if(state>0 && var_en>var_st) { /* name must be valid */
+				char *name;
+				assert(var_st<=var_en);
+				name=uri_unescape(0, 0, hc+var_st, var_en-var_st);
+				if(state>=2) { /* value start seems to be valid */
+					_char *value;
+					assert(val_st>=var_en);
+					assert(val_st<=ofs);
+					value=uri_unescape(0, 0, hc+val_st, ofs-val_st);
+					attrset(c->client_cookies, name, value);
+					free(value);
+				} else { /* value is empty/unspecified */
+					/* set to empty string if no value supplied */
+					attrset(c->client_cookies, name, (const _char*)"");
+				}
+				free(name);
+			}
+			/** reset state **/
+			state=0;
+			/* TODO: should these values be set to something else? */
+			var_st=0;
+			var_en=0;
+			val_st=0;
+			if(hc[ofs]) {
+				continue;
+			} else {
+				break;
+			}
+		}
+		switch(state) {
+			case 0: /* look for start of name */
+				if(hc[ofs]=='=') { /* funny/bad cookie name */
+					var_st=ofs; /* start */
+					var_en=ofs; /* update end to here */
+					val_st=ofs+1;
+					state=2; /* skip to value state */
+				} else if(!isspace(hc[ofs])) {
+					var_st=ofs; /* start */
+					var_en=ofs; /* update end to here - will update again */
+					state++; /* next state */
+				}
+				break;
+			case 1: /* look for end of name */
+				if(hc[ofs]=='=') {
+					var_en=ofs;
+					val_st=ofs+1; /* start of value */
+					state++; /* next state */
+				}
+				break;
+			case 2: /* value state */
+				/* do nothing further. condition for ; will reset state */
+				break;
+			default:
+				abort();
+		}
+	}
+	return 1;
 }
 
 /* TODO: implement flags to disable POST and/or GET methods */
@@ -196,89 +281,191 @@ cgi_t cgi_init(void)
 	ret->content_type=0;
 	ret->cache_control=0;
 	ret->has_sent_headers=0;
+	ret->client_cookies=0; /* NULL means no Cookies found */
+	ret->cookies_out=0; /* NULL means don't send Set-Cookies header */
+	/* set all special attributes for output cookies to 0/NULL */
+	memset(&ret->cookies_out_attributes, 0, sizeof ret->cookies_out_attributes);
 	load_query_string(ret);
 	load_post_data(ret); /* post data should take precedence */
+	load_http_cookies(ret);
 	return ret;
 }
 
-int cgi_vprintf(cgi_t ht, const char *fmt, va_list ap) 
+int cgi_vprintf(cgi_t c, const char *fmt, va_list ap) 
 {
-	if(!ht->has_sent_headers) {
+	if(!c->has_sent_headers) {
 		fprintf(stderr, "%s:%d:%s() called before cgi_start_headers().\n", __FILE__, __LINE__, __func__);
 		return 0;
 	}
-	return vfprintf(ht->output, fmt, ap);
+	return vfprintf(c->output, fmt, ap);
 }
 
-int cgi_printf(cgi_t ht, const char *fmt, ...)
+int cgi_printf(cgi_t c, const char *fmt, ...)
 {
 	int ret;
-	if(!ht->has_sent_headers) {
+	if(!c->has_sent_headers) {
 		fprintf(stderr, "%s:%d:%s() called before cgi_start_headers().\n", __FILE__, __LINE__, __func__);
 		return 0;
 	}
 	va_list ap;
 	va_start(ap, fmt);
-	ret=cgi_vprintf(ht, fmt, ap);
+	ret=cgi_vprintf(c, fmt, ap);
 	va_end(ap);
 	return ret;
 }
 
-void cgi_set_content_type(cgi_t ht, const char *content_type)
+void cgi_set_content_type(cgi_t c, const char *content_type)
 {
-	free(ht->content_type);
-	ht->content_type=content_type?strdup(content_type):0;
+	free(c->content_type);
+	c->content_type=content_type?strdup(content_type):0;
 }
 
-void cgi_set_cache_control(cgi_t ht, const char *cache_control)
+void cgi_set_cache_control(cgi_t c, const char *cache_control)
 {
-	free(ht->cache_control);
-	ht->cache_control=cache_control?strdup(cache_control):0;
+	free(c->cache_control);
+	c->cache_control=cache_control?strdup(cache_control):0;
 }
 
-void cgi_start_headers(cgi_t ht) {
-	if(ht->has_sent_headers) {
+void cgi_start_headers(cgi_t c) {
+	assert(c!=NULL);
+	if(c->has_sent_headers) {
 		fprintf(stderr, "%s:%d:multiple requests to %s().\n", __FILE__, __LINE__, __func__);
 		return;
 	}
-	ht->has_sent_headers++;
+	c->has_sent_headers++;
 	/* default to text/plain content-type */
-	cgi_printf(ht,"Content-Type: %s\n", ht->content_type ? ht->content_type : "text/plain");
+	cgi_printf(c, "Content-Type: %s\n", c->content_type ? c->content_type : "text/plain");
 	/* omit if cache_control not set */
-	if(ht->cache_control) {
-		cgi_printf(ht,"Cache-Control: %s\n", ht->cache_control);
+	if(c->cache_control) {
+		cgi_printf(c, "Cache-Control: %s\n", c->cache_control);
+	}
+	if(c->cookies_out) {
+		int count;
+		const _char *name, *value;
+		/* loop through the list of cookies */
+		for(count=0;attrlist(c->cookies_out, &name, &value, &count);) {
+			_char *name_esc, *value_esc;
+			/* escape ;= and others in value and name */
+			name_esc=uri_escape(0, 0, name, -1);
+			value_esc=uri_escape(0, 0, value, -1);
+			assert(name_esc!=NULL);
+			assert(value_esc!=NULL);
+			cgi_printf(c, "Set-Cookie: %s=%s", name_esc, value_esc);
+			free(name_esc);
+			free(value_esc);
+			/* Use the same attributes for all of the cookies */
+			if(c->cookies_out_attributes.expires) {
+				char expbuf[64];
+				strftime(expbuf, sizeof expbuf, "%a, %d %b %Y %H:%M:%S", gmtime(&c->cookies_out_attributes.expires));
+				cgi_printf(c, "; expires=%s", expbuf);
+			}
+			if(c->cookies_out_attributes.domain)
+				cgi_printf(c, "; domain=%s", c->cookies_out_attributes.domain);
+			if(c->cookies_out_attributes.path)
+				cgi_printf(c, "; path=%s", c->cookies_out_attributes.path);
+			if(c->cookies_out_attributes.secure)
+				cgi_printf(c, "; secure");
+			cgi_printf(c, "\n");
+		}
 	}
 	/* begin document content */
-	cgi_printf(ht, "\n");
+	cgi_printf(c, "\n");
 	/* flush buffers */
-	fflush(ht->output);
+	fflush(c->output);
 }
 
-void cgi_setparam(cgi_t ht, const char *name, const _char *val)
+/** sets a fake POST/GET parameter. val==NULL to delete parameter */
+void cgi_setparam(cgi_t c, const char *name, const _char *val)
 {
-	attrset(ht->attr, name, val);
+	attrset(c->attr, name, val);
 }
 
-const _char *cgi_param(cgi_t ht, const char *name)
+/** gets a POST/GET parameter */
+const _char *cgi_param(cgi_t c, const char *name)
 {
-	return attrget(ht->attr,name);
+	return attrget(c->attr, name);
 }
 
-attrlist_t cgi_attrlist(cgi_t ht)
+/** get the internal attribute list for POST/GET values */
+attrlist_t cgi_attrlist(cgi_t c)
 {
-	return ht->attr;
+	return c->attr;
 }
 
-void cgi_free(cgi_t ht)
+/** free a cgi_t data structure */
+void cgi_free(cgi_t c)
 {
-	cgi_set_content_type(ht, 0);
-	cgi_set_cache_control(ht, 0);
-	attrfree(ht->attr);
-	free(ht);
+	cgi_set_content_type(c, 0);
+	cgi_set_cache_control(c, 0);
+	attrfree(c->attr);
+	if(c->client_cookies) {
+		attrfree(c->client_cookies);
+	}
+	if(c->cookies_out) {
+		attrfree(c->cookies_out);
+	}
+	free(c);
 }
 
+/** gets a POST/GET parameter as an integer */
 int cgi_param_int(cgi_t c, const char *name, long *i)
 {
 	return attrget_int(c->attr, name, i);
+}
+
+/** sets an outgoing cookie value */
+int cgi_set_cookie(cgi_t c, const char *name, const char *fmt, ...)
+{
+	va_list ap;
+	int ret;
+	if(!c->cookies_out) {
+		c->cookies_out=attrinit();
+	}
+	va_start(ap, fmt);
+	ret=attrvprintf(c->cookies_out, name, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
+/** alters the expires setting for all outgoing cookies */
+void cgi_set_cookie_expires(cgi_t c, time_t value)
+{
+	c->cookies_out_attributes.expires=value;
+}
+
+/** alters the domain setting for all outgoing cookies */
+void cgi_set_cookie_domain(cgi_t c, const char *value)
+{
+	free(c->cookies_out_attributes.domain);
+	c->cookies_out_attributes.domain=value?strdup(value):0;
+}
+
+/** alters the path setting for all outgoing cookies */
+void cgi_set_cookie_path(cgi_t c, const char *value)
+{
+	free(c->cookies_out_attributes.path);
+	c->cookies_out_attributes.path=value?strdup(value):0;
+}
+
+/** alters the secure flag for outgoing cookies */
+void cgi_set_cookie_secure(cgi_t c, int secure)
+{
+	c->cookies_out_attributes.secure=secure;
+}
+
+/** reads a client cookie */
+const _char *cgi_cookie(cgi_t c, const char *name)
+{
+	if(!c->client_cookies)
+		return 0;
+	return attrget(c->client_cookies, name);
+}
+
+/** reads a client cookie as an integer */
+int cgi_cookie_int(cgi_t c, const char *name, long *i)
+{
+	if(!c->client_cookies)
+		return 0;
+	return attrget_int(c->client_cookies, name, i);
 }
 

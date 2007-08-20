@@ -30,6 +30,7 @@ void namefree(void);
 int attrget_int(attrlist_t al, const char *name, long *i);
 
 #ifndef NDEBUF
+#include <stdio.h>
 void attrdump(FILE *out, attrlist_t al);
 #endif
 #endif /* ATTR_H */
