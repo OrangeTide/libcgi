@@ -8,7 +8,7 @@ CFLAGS+=-O1
 # turn on POSIX/susv3 
 CPPFLAGS:=-D_XOPEN_SOURCE=600
 
-OBJS:=attr.o cgi.o escape.o mapfile.o template.o
+OBJS:=attr.o cgi.o escape.o mapfile.o template.o sha1passwd.o ini.o keygen.o base64.o
 libcgi.a : libcgi.a($(OBJS))
 
 testcgi : testcgi.c libcgi.a
