@@ -33,4 +33,5 @@ void cgi_set_cookie_path(cgi_t c, const char *value);
 void cgi_set_cookie_secure(cgi_t c, int secure);
 const _char *cgi_cookie(cgi_t c, const char *name);
 int cgi_cookie_int(cgi_t c, const char *name, long *i);
+const char *home_filename(const char *home_dir, const char *filename);
 #endif /* CGI_H */

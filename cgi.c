@@ -1,6 +1,7 @@
 /* cgi.c - cgi API */
 #include <assert.h>
 #include <ctype.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -469,3 +470,19 @@ int cgi_cookie_int(cgi_t c, const char *name, long *i)
 	return attrget_int(c->client_cookies, name, i);
 }
 
+
+/** returns a static buffer of a full path to filename based on the home
+ * setting. */
+/* TODO: support PATH-like : to search paths for a file */
+const char *home_filename(const char *home_dir, const char *filename) {
+	static char buf[_POSIX_PATH_MAX];
+	int res;
+	res=snprintf(buf, sizeof buf, "%s/%s", home_dir, filename);
+	if(res<0 || res>=(int)sizeof buf) {
+#ifndef NDEBUG
+		abort();
+#endif
+		return 0; /* error - truncated filename */
+	}
+	return buf; /* success */
+}
