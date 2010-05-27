@@ -1,3 +1,5 @@
+/* attr.c : manage lists of name-value pairs. */
+/* PUBLIC DOMAIN - Jon Mayo - June 1, 2003 */
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,7 +43,7 @@ static int nameadd(const char *name)
 	type=name_list.len;
 	entry=name_list.data+type;
 	name_list.len++;
-	*entry=(_char*)strdup((const char*)name);	
+	*entry=(_char*)strdup((const char*)name);
 	return type;
 }
 
@@ -80,7 +82,7 @@ static attr_t *attradd(attrlist_t al, int type)
 	at->type=type;
 	at->len=0;
 	at->value=NULL;
-	return at;	
+	return at;
 }
 
 static void attrdel(attrlist_t al, attr_t *at)
@@ -103,13 +105,13 @@ static attr_t *setup_access(attrlist_t al, const char *name) {
 
 	type=attrtype(name);
 	if(type==-1) { /* type not found add it to the global list */
-		type=nameadd(name);	
+		type=nameadd(name);
 	}
 	at=attrlookup(al, type);
 	if(!at) {
 		/* create a new attribute if it doesn't exist */
 		at=attradd(al, type);
-	} 
+	}
 
 	return at;
 }
@@ -119,7 +121,7 @@ void attrcatn(attrlist_t al, const char *name, const _char *value, size_t len) {
 	attr_t *at;
 	size_t oldlen;
 	_char *newvalue;
-	at=setup_access(al, name);	
+	at=setup_access(al, name);
 	/* a null value would delete the attribute */
 	if(value==NULL) {
 		if(at) attrdel(al, at); /* delete if there is no value */
@@ -127,7 +129,7 @@ void attrcatn(attrlist_t al, const char *name, const _char *value, size_t len) {
 	}
 	/* append the string */
 	oldlen=at->len;
-	newvalue=realloc(at->value, oldlen+len+1); 
+	newvalue=realloc(at->value, oldlen+len+1);
 	if(!newvalue) return;
 	memcpy(newvalue+oldlen, value, len);
 	at->value=newvalue;
@@ -142,7 +144,7 @@ void attrcat(attrlist_t al, const char *name, const _char *value) {
 static void attrsetn_internal(attrlist_t al, const char *name, int safe_fl, const _char *value, size_t len)
 {
 	attr_t *at;
-	at=setup_access(al, name);	
+	at=setup_access(al, name);
 	/* a null value would delete the attribute */
 	if(value==NULL) {
 		if(at) attrdel(al, at); /* delete if there is no value */
@@ -233,7 +235,7 @@ int attrlist(attrlist_t al, const _char **name, const _char **value, int *counte
 
 attrlist_t attrinit(void)
 {
-	attrlist_t al;	
+	attrlist_t al;
 	al=malloc(sizeof *al);
 	al->len=0;
 	al->data=NULL;

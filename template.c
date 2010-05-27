@@ -1,3 +1,6 @@
+/* template.c - generate files using shell-like substititions.
+ * PUBLIC DOMAIN - Jon Mayo - August 6, 2007
+ */
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -139,7 +142,7 @@ template_t *template_loadfile(const char *filename) {
 template_t *template_loadstring(const char *str, int len) {
 	template_t *ret;
 	assert(str!=NULL);
-	if(len<0) 
+	if(len<0)
 		len=strlen(str);
 	ret=malloc(sizeof *ret);
 	ret->mi.data=0;
@@ -170,7 +173,7 @@ void template_apply(template_t *t, attrlist_t al) {
 #ifdef WIN32
 				fwrite(tmp, 1, strlen((const char*)tmp), stdout);
 #else
-				write(1, tmp, strlen((const char*)tmp)); 
+				write(1, tmp, strlen((const char*)tmp));
 #endif
 			}
 		} else if(!al && e->type) { /* debug mode because al==NULL */
@@ -193,7 +196,7 @@ void template_apply(template_t *t, attrlist_t al) {
 
 void template_free(template_t *t) {
 	struct entry *curr, *next;
-	if(!t) 
+	if(!t)
 		return; /* t=NULL then just leave */
 	for(curr=t->entry_list;curr;curr=next) {
 		next=curr->next;

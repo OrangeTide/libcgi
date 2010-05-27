@@ -1,3 +1,5 @@
+/* escape.c - encode/decode URI and HTML style escapes. */
+/* PUBLIC DOMAIN - Jon Mayo - Aug 20, 2007 */
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -26,8 +28,8 @@ static int ishex(const _char code[2]) {
 static unsigned unhex(const _char code[2]) {
     const char hextab[] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
-        ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9, 
-        ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf, 
+        ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9,
+        ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf,
         ['A']=0xa, ['B']=0xb, ['C']=0xc, ['D']=0xd, ['E']=0xe, ['F']=0xf,
     };
 
@@ -69,12 +71,12 @@ unsigned uri_escape_len(const _char *s, size_t len) {
 	return ret;
 }
 
-/** escapes using % - identical to JavaScript/ECMAscript version of escape() 
+/** escapes using % - identical to JavaScript/ECMAscript version of escape()
  * if dest is NULL, return malloc()'d string. needs to be free()'d
  * if src_len is negative treat src as null terminated
  * return:
  * 	0 on error (overflow of dest, allocation failure)
- *  dest or allocated pointer on success	
+ *  dest or allocated pointer on success
  *  destination string will always be null terminated
  */
 char *uri_escape(char *dest, size_t dest_len, const char *src, int src_len) {
@@ -95,7 +97,7 @@ char *uri_escape(char *dest, size_t dest_len, const char *src, int src_len) {
 		}
 	}
 	ret=dest;
-	/* escape these values ~!#$%^&(){}[]=:,;?'"\ 
+	/* escape these values ~!#$%^&(){}[]=:,;?'"\
 	 * make sure there is room in dest for a '\0' */
 	for(;src_len>0 && dest_len>1;src++,src_len--) {
 		switch(*src) {
@@ -151,12 +153,12 @@ char *uri_escape(char *dest, size_t dest_len, const char *src, int src_len) {
 	return ret;
 }
 
-/** decode %xx into ascii characters 
+/** decode %xx into ascii characters
  * if dest is NULL, return malloc()'d string. needs to be free()'d
  * if src_len is negative treat src as null terminated
  * return:
  * 	0 on error (overflow of dest, allocation failure)
- *  dest or allocated pointer on success	
+ *  dest or allocated pointer on success
  */
 char *uri_unescape(char *dest, size_t dest_len, const _char *src, int src_len) {
 	char *ret;
@@ -212,7 +214,7 @@ unsigned html_escape_len(const char *s, size_t len) {
 	return ret;
 }
 
-/** escapes HTML entities 
+/** escapes HTML entities
  * BUG: silently drops entities if there is no room
  */
 void html_escape(char *dest, size_t len, const char *s) {
@@ -221,13 +223,13 @@ void html_escape(char *dest, size_t len, const char *s) {
 	for(i=0;i<len && *s;s++) {
 		switch(*s) {
 			case '<':
-				i+=safe_append(dest+i,len-i, "&lt;");	
+				i+=safe_append(dest+i,len-i, "&lt;");
 				break;
 			case '>':
-				i+=safe_append(dest+i,len-i, "&gt;");	
+				i+=safe_append(dest+i,len-i, "&gt;");
 				break;
 			case '&':
-				i+=safe_append(dest+i,len-i, "&amp;");	
+				i+=safe_append(dest+i,len-i, "&amp;");
 				break;
 			default:
 				dest[i++]=*s;

@@ -1,4 +1,5 @@
 /* cgi.c - cgi API */
+/* PUBLIC DOMAIN - Jon Mayo - Jan 1, 2004 */
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
@@ -37,7 +38,7 @@ static void dump_attr(cgi_t c, attrlist_t al) {
 	const _char *type, *value;
 	for(count=0;attrlist(al, &type, &value, &count);) {
 		/* TODO: escape special characters */
-		if(value && *value) 
+		if(value && *value)
 			cgi_printf(c, " %s=\"%s\"", type, value);
 		else
 			cgi_printf(c, " %s", type);
@@ -53,8 +54,8 @@ static int ishex(const _char code[2]) {
 static unsigned unhex(const _char code[2]) {
     const _char hextab[] = {
         ['0']=0, ['1']=1, ['2']=2, ['3']=3, ['4']=4,
-        ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9, 
-        ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf, 
+        ['5']=5, ['6']=6, ['7']=7, ['8']=8, ['9']=9,
+        ['a']=0xa, ['b']=0xc, ['c']=0xc, ['d']=0xd, ['e']=0xe, ['f']=0xf,
         ['A']=0xa, ['B']=0xb, ['C']=0xc, ['D']=0xd, ['E']=0xe, ['F']=0xf,
     };
 
@@ -86,29 +87,29 @@ static void parse_form_urlencoded(attrlist_t al, const _char *formdata) {
 	_char namebuf[MAX_ATTR_LEN]; /* buffer to hold the current name element */
 	_char valuebuf[MAX_ATTR_LEN]; /* buffer to hold the current value */
 	unsigned len;
-	const _char *headp; 
+	const _char *headp;
 	const _char *tailp;
 	fprintf(stderr, "%d: formdata=\"%s\"\n", __LINE__, formdata);
 	for(headp=formdata;*headp;) {
 		tailp=headp+strcspn((char*)headp, "=&");
 		len=(unsigned)(tailp-headp)<sizeof namebuf?(unsigned)(tailp-headp):sizeof namebuf-1;
 		decode_cgi_string(namebuf, headp, len);
-		if(!tailp[0]) { 
-			valuebuf[0]=0; 
-			attrset(al, (const char*)namebuf, valuebuf); 
-			break; 
+		if(!tailp[0]) {
+			valuebuf[0]=0;
+			attrset(al, (const char*)namebuf, valuebuf);
+			break;
 		}
 		headp=tailp+1;
-		if(tailp[0]=='&') { 
+		if(tailp[0]=='&') {
 			attrset(al, (const char*)namebuf, (_char*)"");
-			continue; 
+			continue;
 		}
 		tailp=headp+strcspn((char*)headp, "&");
 		len=(unsigned)(tailp-headp)<sizeof valuebuf?(unsigned)(tailp-headp):sizeof valuebuf-1;
 		decode_cgi_string(valuebuf, headp, len);
 		if(!tailp[0]) {
 			attrset(al, (const char*)namebuf, valuebuf);
-			break; 
+			break;
 		}
 		headp=tailp+1;
 		attrset(al, (const char*)namebuf, valuebuf);
@@ -124,7 +125,7 @@ static void load_post_data(cgi_t c)
 	rm=getenv("REQUEST_METHOD");
 	fprintf(stderr, "%s:%d: REQUEST_METHOD=\"%s\"\n", __FILE__, __LINE__, rm);
 	/* only do the POST stuff if we're doing POST method */
-	if(!rm || strcasecmp(rm, "POST")) 
+	if(!rm || strcasecmp(rm, "POST"))
 		return;
 	cl=getenv("CONTENT_LENGTH");
 	if(!cl)
@@ -180,7 +181,7 @@ static int load_query_string(cgi_t c)
 	if(!qs) return 0;
 	fprintf(stderr, "calling parse_form_urlencoded @ %d\n", __LINE__);
 	parse_form_urlencoded(c->attr, (const _char*)qs);
-	return 1;   
+	return 1;
 }
 
 static int load_http_cookies(cgi_t c)
@@ -200,7 +201,7 @@ static int load_http_cookies(cgi_t c)
 	/* parse string for cookies */
 	for(ofs=0,state=0,var_st=0,var_en=0,val_st=0;ofs<MAX_COOKIE_LEN;ofs++) {
 		if(!hc[ofs] || hc[ofs]==';') {
-			/* BUG: we don't support VAR; syntax. only VAR=; 
+			/* BUG: we don't support VAR; syntax. only VAR=;
 			 * this breaks supporting the "secure" attribute. */
 			if(state>0 && var_en>var_st) { /* name must be valid */
 				char *name;
@@ -262,7 +263,7 @@ static int load_http_cookies(cgi_t c)
 }
 
 /* TODO: implement flags to disable POST and/or GET methods */
-cgi_t cgi_init(void) 
+cgi_t cgi_init(void)
 {
 	cgi_t ret;
 
@@ -292,7 +293,7 @@ cgi_t cgi_init(void)
 	return ret;
 }
 
-int cgi_vprintf(cgi_t c, const char *fmt, va_list ap) 
+int cgi_vprintf(cgi_t c, const char *fmt, va_list ap)
 {
 	if(!c->has_sent_headers) {
 		fprintf(stderr, "%s:%d:%s() called before cgi_start_headers().\n", __FILE__, __LINE__, __func__);

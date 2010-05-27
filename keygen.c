@@ -1,3 +1,5 @@
+/* keygen.c - generate random strings. */
+/* PUBLIC DOMAIN - Jon Mayo - March 27, 2008 */
 /* TODO: use /dev/random to gather entropy */
 
 #include <stdio.h>

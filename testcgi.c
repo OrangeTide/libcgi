@@ -1,3 +1,6 @@
+/* testcgi.c - example of using CGI library.
+ * PUBLIC DOMAIN - Jon Mayo - August 6, 2007
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,14 +19,14 @@ static void template_test(void) {
 		"test2.template",
 		"test3.template",
 	};
-	
+
 	al=attrinit();
 	attrset(al, "SUBJECT", "[[SUBJECT]]");
 	attrset(al, "ICON_URL", "[[ICON_URL]]");
 	attrset(al, "DATE", "[[DATE]]");
 	attrset(al, "FROM", "[[FROM]]");
 	attrset(al, "MESSAGE_BODY", "[[MESSAGE_BODY]]");
-	
+
 	/* test with mapped files */
 	for(i=0;i<sizeof files/sizeof *files;i++) {
 		printf("::%s::\n", files[i]);

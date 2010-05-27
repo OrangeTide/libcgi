@@ -1,4 +1,5 @@
 /* sha1passwd.c - hashes passwords using SHA1
+ * PUBLIC DOMAIN - Jon Mayo - July 8, 2006
  * $Id: sha1passwd.c 156 2007-07-12 23:29:10Z orange $
  */
 #include <stdlib.h>
@@ -66,7 +67,7 @@ int ssha1_checkpass(const char *cleartext, const char *crypttext) {
 
 	data_len=ssha1_getdata(crypttext, sizeof data, data);
 	if(!data_len) return 0;
-	
+
 	check_len=ssha1_cryptdata(cleartext, data_len - SHA_DIGEST_LENGTH, data+SHA_DIGEST_LENGTH, sizeof check, check);
 	if(!check_len) return 0;
 	if(check_len!=data_len) return 0;
@@ -74,7 +75,7 @@ int ssha1_checkpass(const char *cleartext, const char *crypttext) {
 }
 
 /* UNTESTED */
-int ssha1_isvalid(const char *ciphertext) 
+int ssha1_isvalid(const char *ciphertext)
 {
 	return !strncmp(ciphertext, SSHA1_MAGIC, SSHA1_MAGIC_LENGTH);
 }
@@ -109,7 +110,7 @@ static void do_test(void) {
 	static const struct {
 		char *sha1passwd;
 		char *cleartext;
-	} tests[] = {  
+	} tests[] = {
 		{"$ssha1$/EExmSfmhQSPHDJaTxwQSdb/uPpzYWx0ZXI=", "secret"},
 		{"$ssha1$gVK8WC9YyFT1gMsQHTGCgT3sSv5zYWx0", "secret"},
 		{"$ssha1$W3ipFGmzS3+j6/FhT7ZC39MIfqFcct9Ep0KEGA==", "asddsa123"},
